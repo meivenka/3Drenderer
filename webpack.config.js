@@ -29,4 +29,12 @@ module.exports = {
         port: 9000,
         host: 'localhost',
     },
+    module: {
+        rules: [
+          {
+              test: /\.glsl$/,
+              use: 'webpack-glsl-loader'
+          }
+        ]
+    }
 };

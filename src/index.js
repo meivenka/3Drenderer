@@ -477,6 +477,9 @@ class Canvas {
     }
 }
 
+var shader = require('./shader.glsl');
+console.log(shader);
+
 class Scene {
     constructor(id, sceneData, shaderType, aa = [[0, 0, 1]]) {
         let cameraData = sceneData.camera;
