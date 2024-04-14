@@ -13,166 +13,6 @@ function normalize(v) {
     return math.divide(v, math.norm(v));
 }
 
-class Matrix {
-    constructor(rows, cols) {
-        this.rows = rows;
-        this.cols = cols;
-        this.data = new Array(rows * cols).fill(0);
-    }
-
-    getElem(row, col) {
-        return this.data[row * this.rows + col];
-    }
-
-    setElem(row, col, val) {
-        this.data[row * this.rows + col] = val;
-    }
-
-    fromRowList(rowList) {
-        if (rowList.length != this.rows) {
-            throw new Error('Invalid rowList');
-        }
-
-        for (let i = 0; i < rowList.length; i++) {
-            if (rowList[i].length != this.cols) {
-                throw new Error('Invalid rowList');
-            }
-            for (let j = 0; j < rowList[i].length; j++) {
-                this.setElem(i, j, rowList[i][j]);
-            }
-        }
-    }
-
-    copy() {
-        let m = new Matrix(this.rows, this.cols);
-        for (let i = 0; i < this.rows; i++) {
-            for (let j = 0; j < this.cols; j++) {
-                m.setElem(i, j, this.getElem(i, j));
-            }
-        }
-        return m;
-    }
-
-    xVector(v) {
-        if (v.length != this.cols) {
-            return undefined;
-        }
-        let result = [];
-        for (let i = 0; i < this.rows; i++) {
-            result.push(math.dot(v, this.getRow(i)));
-        }
-        return result;
-    }
-
-    vectorX(v) {
-        if (v.length != this.rows) {
-            return undefined;
-        }
-        let result = [];
-        for (let j = 0; j < this.cols; j++) {
-            result.push(math.dot(v, this.getCol(j)));
-        }
-        return result;
-    }
-
-    getRow(row) {
-        let result = [];
-        for (let j = 0; j < this.cols; j++) {
-            result.push(this.getElem(row, j));
-        }
-        return result;
-    }
-
-    setRow(row, v) {
-        if (v.length != this.cols) {
-            throw new Error('Invalid vector for setRow');
-        }
-        for (let j = 0; j < this.cols; j++) {
-            this.setElem(row, j, v[j]);
-        }
-    }
-
-    getCol(col) {
-        let result = [];
-        for (let i = 0; i < this.rows; i++) {
-            result.push(this.getElem(i, col));
-        }
-        return result;
-    }
-
-    static x(m1, m2) {
-        if (m1.cols != m2.rows) {
-            return undefined;
-        }
-        
-        let m = new Matrix(m1.rows, m2.cols);
-        for (let i = 0; i < m1.rows; i++) {
-            for (let j = 0; j < m2.cols; j++) {
-                m.setElem(i, j, math.dot(m1.getRow(i), m2.getCol(j)));
-            }
-        }
-        return m;
-    }
-
-    inv() {
-        if (this.cols != this.rows) {
-            return undefined;
-        }
-
-        let m = this.copy();
-        let I = new Matrix(m.rows, m.cols);
-        for (let i = 0; i < m.rows; i++) {
-            I.setElem(i, i, 1);
-        }
-
-        for (let i = 0; i < m.rows; i++) {
-            let v = m.getRow(i);
-            let vI = I.getRow(i);
-            let v_ = v.slice();
-            v = math.multiply(1 / v_[i], v);
-            vI = math.multiply(1 / v_[i], vI);
-            m.setRow(i, v);
-            I.setRow(i, vI);
-            for (let i2 = i + 1; i2 < m.rows; i2++) {
-                let v2 = m.getRow(i2);
-                let v2I = I.getRow(i2);
-                let v2_ = v2.slice();
-                v2 = math.add(v2, math.multiply(-v2_[i], v));
-                v2I = math.add(v2I, math.multiply(-v2_[i], vI));
-                m.setRow(i2, v2);
-                I.setRow(i2, v2I);
-            }
-        }
-
-        for (let i = m.rows - 1; i >= 0; i--) {
-            let v = m.getRow(i);
-            let vI = I.getRow(i);
-            for (let i2 = i - 1; i2 >= 0 ; i2--) {
-                let v2 = m.getRow(i2);
-                let v2I = I.getRow(i2);
-                let v2_ = v2.slice();
-                v2 = math.add(v2, math.multiply(-v2_[i], v));
-                v2I = math.add(v2I, math.multiply(-v2_[i], vI));
-                m.setRow(i2, v2);
-                I.setRow(i2, v2I);
-            }
-        }
-        return I;
-    }
-
-    transpose() {
-        let m = this.copy();
-        for (let i = 0; i < m.rows; i++) {
-            for (let j = 0; j < i; j++) {
-                let t = m.getElem(i, j);
-                m.setElem(i, j, m.getElem(j, i));
-                m.setElem(j, i, t);
-            }
-        }
-        return m;
-    }
-}
-
 function triangleColor(n) {
     let dotp = 0.707 * n[0] + 0.5 * n[1] + 0.5 * n[2];
     dotp = Math.abs(dotp);
@@ -230,19 +70,13 @@ class Shape {
         this.notes = shapeData.notes;
         this.geometry = shapeData.geometry;
 
-        let transMatrix = new Matrix(4, 4);
-        transMatrix.fromRowList([
-          [1, 0, 0, 0],
-          [0, 1, 0, 0],
-          [0, 0, 1, 0],
-          [0, 0, 0, 1]
-        ]);
+        let transMatrix = math.identity(4);
 
         for (const transform of shapeData.transforms) {
-            let m = new Matrix(4, 4);
+            let m = {};
             if ("Ry" in transform) {
                 let Ry = (transform.Ry / 180) * Math.PI
-                m.fromRowList([
+                m = math.matrix([
                   [Math.cos(Ry), 0, Math.sin(Ry), 0],
                   [0, 1, 0, 0],
                   [-Math.sin(Ry), 0, Math.cos(Ry), 0],
@@ -250,7 +84,7 @@ class Shape {
                 ]);
             } else if ("Rx" in transform) {
                 let Rx = (transform.Rx / 180) * Math.PI
-                m.fromRowList([
+                m = math.matrix([
                   [1, 0, 0, 0],
                   [0, Math.cos(Rx), Math.sin(Rx), 0],
                   [0, -Math.sin(Rx), Math.cos(Rx), 0],
@@ -258,7 +92,7 @@ class Shape {
                 ]);
             } else if ("Rz" in transform) {
                 let Rz = (transform.Rz / 180) * Math.PI
-                m.fromRowList([
+                m = math.matrix([
                   [Math.cos(Rz), -Math.sin(Rz), 0, 0],
                   [Math.sin(Rz), Math.cos(Rz), 0, 0],
                   [0, 0, 1, 0],
@@ -266,7 +100,7 @@ class Shape {
                 ]);
             } else if ("S" in transform) {
                 let S = transform.S;
-                m.fromRowList([
+                m = math.matrix([
                   [S[0], 0, 0, 0],
                   [0, S[1], 0, 0],
                   [0, 0, S[2], 0],
@@ -274,7 +108,7 @@ class Shape {
                 ]);
             } else if ("T" in transform) {
                 let T = transform.T;
-                m.fromRowList([
+                m = math.matrix([
                   [1, 0, 0, T[0]],
                   [0, 1, 0, T[1]],
                   [0, 0, 1, T[2]],
@@ -283,7 +117,7 @@ class Shape {
             } else {
                 throw new Error("Invalid transform", transform);
             }
-            transMatrix = Matrix.x(m, transMatrix);
+            transMatrix = math.multiply(m, transMatrix);
         }
 
         this.transMatrix = transMatrix;
@@ -330,8 +164,7 @@ class Shape {
 
 class Camera {
     constructor(u, v, n, r, left, right, bottom, top, near, far) {
-        this.viewMatrix = new Matrix(4, 4);
-        this.viewMatrix.fromRowList(
+        this.viewMatrix = math.matrix(
           [
             [u[0], u[1], u[2], -math.dot(r, u)],
             [v[0], v[1], v[2], -math.dot(r, v)],
@@ -339,8 +172,7 @@ class Camera {
             [0, 0, 0, 1]
           ]
         );
-        this.perspMatrix = new Matrix(4, 4);
-        this.perspMatrix.fromRowList(
+        this.perspMatrix = math.matrix(
           [
             [2 * near / (right - left), 0, (right + left) / (right - left), 0],
             [0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0 ],
@@ -350,21 +182,21 @@ class Camera {
         );
         
 
-        this.transMatrix = Matrix.x(this.perspMatrix, this.viewMatrix);
-        this.normalMatrix = this.viewMatrix.inv().transpose();
+        this.transMatrix = math.multiply(this.perspMatrix, this.viewMatrix);
+        this.normalMatrix = math.transpose(math.pinv(this.viewMatrix));
     }
 
     static normalTransform(m, n) {
         n = n.slice();
         n.push(1);
-        n = m.xVector(n);
+        n = math.multiply(m, n).toArray();
         return normalize(n.slice(0, 3));
     }
 
     static transform(m, v) {
         v = v.slice();
         v.push(1);
-        v = m.xVector(v);
+        v = math.multiply(m, v).toArray();
         v = math.multiply(1 / v[3], v.slice(0, 3))
         return v;
     }
@@ -486,10 +318,10 @@ class Scene {
     drawShape(shape) {
         let camera = this.camera;
         let geometry = geometries[shape.geometry];
-        let transMatrix = Matrix.x(camera.transMatrix, shape.transMatrix);
-        let normalMatrix = Matrix.x(camera.viewMatrix, shape.transMatrix).inv().transpose();
+        let transMatrix = math.multiply(camera.transMatrix, shape.transMatrix);
+        let normalMatrix = math.transpose(math.pinv(math.multiply(camera.viewMatrix, shape.transMatrix)));
         let scene = this;
-        let perspInv = camera.perspMatrix.inv();
+        let perspInv = math.pinv(camera.perspMatrix);
         let glPositions = [];
         let glColors = [];
         for (const triangleData of geometry.data) {
