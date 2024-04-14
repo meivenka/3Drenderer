@@ -638,6 +638,8 @@ class Scene {
         gl.enableVertexAttribArray(colorAttributeLocation);
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.vertexAttribPointer(colorAttributeLocation, 4, gl.FLOAT, false, 0, 0);
+
+        gl.enable(gl.DEPTH_TEST);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * geometry.data.length);
     }
