@@ -477,9 +477,6 @@ class Canvas {
     }
 }
 
-var shader = require('./shader.glsl');
-console.log(shader);
-
 class Scene {
     constructor(id, sceneData, shaderType, aa = [[0, 0, 1]]) {
         let cameraData = sceneData.camera;
@@ -501,7 +498,17 @@ class Scene {
         let xres = cameraData.resolution[0];
         let yres = cameraData.resolution[1];
 
-        this.canvas = new Canvas(id, xres, yres, aa);
+        // this.canvas = new Canvas(id, xres, yres, aa);
+        // TODO move to canvas
+        let canvas = $("#" + id)[0];
+        canvas.setAttribute("width", xres);
+        canvas.setAttribute("height", yres);
+        let gl =  canvas.getContext("webgl");
+        this.gl = gl;
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        // end of TODO
 
         this.shapes = sceneData.shapes.map((data) => new Shape(data));
 
@@ -567,6 +574,8 @@ class Scene {
         let normalMatrix = Matrix.x(camera.viewMatrix, shape.transMatrix).inv().transpose();
         let scene = this;
         let perspInv = camera.perspMatrix.inv();
+        let glPositions = [];
+        let glColors = [];
         for (const triangleData of geometry.data) {
             let triangle = new Triangle(triangleData, transMatrix, normalMatrix);
             let lightingPhong = function(triangle, v) {
@@ -587,8 +596,50 @@ class Scene {
                 color = color.map((n) => Math.min(n, 1));
                 return color;
             }
-            this.canvas.drawTriangle(triangle, shader);
+            let colors = triangle.vs.map((v) => (shader(triangle, v)));
+            let positions = triangle.vs.map((v) => v.v);
+            glPositions.push.apply(glPositions, positions.flat());
+            glColors.push.apply(glColors, colors.flat());
+            // this.canvas.drawTriangle(triangle, shader);
         }
+
+        let gl = this.gl;
+
+        const vertexShaderSource = require('./vertex.glsl');
+        var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
+        
+        const fragShaderSource = require('./frag.glsl');
+        var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragShader, fragShaderSource);
+        gl.compileShader(fragShader);
+        
+        var shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragShader);
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
+        
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(glPositions), gl.STATIC_DRAW);
+        
+        var colorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(glColors), gl.STATIC_DRAW);
+        
+        var positionAttributeLocation = gl.getAttribLocation(shaderProgram, "position");
+        gl.enableVertexAttribArray(positionAttributeLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
+        
+        var colorAttributeLocation = gl.getAttribLocation(shaderProgram, "color");
+        gl.enableVertexAttribArray(colorAttributeLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.vertexAttribPointer(colorAttributeLocation, 4, gl.FLOAT, false, 0, 0);
+        
+        gl.drawArrays(gl.TRIANGLES, 0, 3 * geometry.data.length);
     }
 
     draw() {
@@ -596,7 +647,7 @@ class Scene {
     }
 
     update() {
-        this.canvas.update();
+        // this.canvas.update();
     }
 }
 
