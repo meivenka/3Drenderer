@@ -370,110 +370,36 @@ class Camera {
     }
 }
 
-class Subcanvas {
-    constructor(xres, yres, color) {
-        this.xres = xres;
-        this.yres = yres;
-        this.data = Array(xres * yres).fill(color);
-        this.zBuffer = Array(xres * yres).fill(Infinity);
-    }
-
-    setPixel(v, color) {
-        let x = Math.round(v[0]);
-        let y = Math.round(v[1]);
-        y = this.yres - 1 - y;
-        let z = v[2];
-        let index = (x + y * this.xres);
-        if (z <= this.zBuffer[index]) {
-            this.zBuffer[index] = z;
-            this.data[index] = color;
-        }
-    }
-}
-
 class Canvas {
-    constructor(id, xres, yres, aa, color = [255 / 255, 255 / 255, 255 / 255, 1]) {
-        if (aa.length <= 0) {
-            throw new Error("Size of antialiasing should be greater than 0");
-        }
-        let aaSum = aa.reduce((sum, subaa) => sum + subaa[2], 0);
-        if (Math.abs(aaSum - 1) > 0.001) {
-            throw new Error("Sum of antialiasing weights should be 1");
-        }
-        
+    constructor(id, xres, yres, color = [255 / 255, 255 / 255, 255 / 255, 1]) {
         this.xres = xres;
         this.yres = yres;
-        this.el = $("#" + id)[0];
-        this.el.setAttribute("width", xres);
-        this.el.setAttribute("height", yres);
-        this.canvas = this.el.getContext("2d");
-        this.img = this.canvas.createImageData(xres, yres);
-        this.subs = aa.map((subaa) => ({"dx": subaa[0], "dy": subaa[1], "weight": subaa[2],
-                                        "subcanvas": new Subcanvas(xres, yres, color)}));
-    }
+        this.canvas = $("#" + id)[0];
+        this.canvas.setAttribute("width", xres);
+        this.canvas.setAttribute("height", yres);
+        let gl = this.canvas.getContext("webgl");
+        this.gl = gl;
+        gl.clearColor(... color);
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-    toCanvasX(x) {
-        return (x + 1) * (this.xres - 1) / 2;
-    }
+        const vertexShaderSource = require('./vertex.glsl');
+        var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
+        
+        const fragShaderSource = require('./frag.glsl');
+        var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragShader, fragShaderSource);
+        gl.compileShader(fragShader);
+        
+        var shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragShader);
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
+        this.glShader = shaderProgram;
 
-    toCanvasY(y) {
-        return (y + 1) * (this.yres - 1) / 2;
-    }
-
-    fromCanvasX(cx) {
-        return 2 * cx / (this.xres - 1) - 1;
-    }
-
-    fromCanvasY(cy) {
-        return 2 * cy / (this.yres - 1) - 1;
-    }
-    
-    drawTriangle(triangle, shader) {
-        for (let sub of this.subs) {
-            let dx = sub.dx;
-            let dy = sub.dy;
-            let xmin = Math.max(Math.min(triangle.vs[0].v[0], triangle.vs[1].v[0], triangle.vs[2].v[0]), -1);
-            let xmax = Math.min(Math.max(triangle.vs[0].v[0], triangle.vs[1].v[0], triangle.vs[2].v[0]), 1);
-            let ymin = Math.max(Math.min(triangle.vs[0].v[1], triangle.vs[1].v[1], triangle.vs[2].v[1]), -1);
-            let ymax = Math.min(Math.max(triangle.vs[0].v[1], triangle.vs[1].v[1], triangle.vs[2].v[1]), 1);
-            for (let cx = Math.floor(this.toCanvasX(xmin) + dx); cx <= Math.ceil(this.toCanvasX(xmax) + dx); cx++) {
-                for (let cy = Math.floor(this.toCanvasY(ymin) + dy); cy <= Math.ceil(this.toCanvasY(ymax) + dy); cy++) {
-                    let x = this.fromCanvasX(cx - dx);
-                    let y = this.fromCanvasY(cy - dy);
-                    let v = triangle.getInside([x, y]);
-                    if (v == null) {
-                        continue;
-                    }
-                    let color = shader(triangle, v);
-                    sub.subcanvas.setPixel([cx, cy, v.v[2]], color);
-                }
-            }
-        }
-    }
-    
-    update() {
-        for (let x = 0; x < this.xres; x++) {
-            for (let y = 0; y < this.yres; y++) {
-                let index = x + y * this.xres;
-                let color = this.subs.reduce((avgColor, sub) =>
-                  (math.add(avgColor, math.multiply(sub.weight, sub.subcanvas.data[index]))),
-                  [0, 0, 0, 0]);
-                
-                let r = Math.round(255 * color[0]);
-                let g = Math.round(255 * color[1]);
-                let b = Math.round(255 * color[2]);
-                let a = Math.round(255 * color[3]);
-
-                let offset = 4 * index;
-                
-                let data = this.img.data;
-                data[offset + 0] = r;
-                data[offset + 1] = g;
-                data[offset + 2] = b;
-                data[offset + 3] = a;
-            }
-        }
-        this.canvas.putImageData(this.img, 0, 0);
+        gl.enable(gl.DEPTH_TEST);
     }
 }
 
@@ -498,17 +424,7 @@ class Scene {
         let xres = cameraData.resolution[0];
         let yres = cameraData.resolution[1];
 
-        // this.canvas = new Canvas(id, xres, yres, aa);
-        // TODO move to canvas
-        let canvas = $("#" + id)[0];
-        canvas.setAttribute("width", xres);
-        canvas.setAttribute("height", yres);
-        let gl =  canvas.getContext("webgl");
-        this.gl = gl;
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        gl.clearColor(1.0, 1.0, 1.0, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        // end of TODO
+        this.canvas = new Canvas(id, xres, yres);
 
         this.shapes = sceneData.shapes.map((data) => new Shape(data));
 
@@ -603,23 +519,9 @@ class Scene {
             // this.canvas.drawTriangle(triangle, shader);
         }
 
-        let gl = this.gl;
-
-        const vertexShaderSource = require('./vertex.glsl');
-        var vertexShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vertexShader, vertexShaderSource);
-        gl.compileShader(vertexShader);
-        
-        const fragShaderSource = require('./frag.glsl');
-        var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragShader, fragShaderSource);
-        gl.compileShader(fragShader);
-        
-        var shaderProgram = gl.createProgram();
-        gl.attachShader(shaderProgram, vertexShader);
-        gl.attachShader(shaderProgram, fragShader);
-        gl.linkProgram(shaderProgram);
-        gl.useProgram(shaderProgram);
+        // TODO move to canvas
+        let gl = this.canvas.gl;
+        let glShader = this.canvas.glShader;
         
         var positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -629,17 +531,15 @@ class Scene {
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(glColors), gl.STATIC_DRAW);
         
-        var positionAttributeLocation = gl.getAttribLocation(shaderProgram, "position");
+        var positionAttributeLocation = gl.getAttribLocation(glShader, "position");
         gl.enableVertexAttribArray(positionAttributeLocation);
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
         
-        var colorAttributeLocation = gl.getAttribLocation(shaderProgram, "color");
+        var colorAttributeLocation = gl.getAttribLocation(glShader, "color");
         gl.enableVertexAttribArray(colorAttributeLocation);
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.vertexAttribPointer(colorAttributeLocation, 4, gl.FLOAT, false, 0, 0);
-
-        gl.enable(gl.DEPTH_TEST);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * geometry.data.length);
     }
@@ -647,16 +547,11 @@ class Scene {
     draw() {
         this.shapes.forEach((shape) => this.drawShape(shape));
     }
-
-    update() {
-        // this.canvas.update();
-    }
 }
 
 function main(canvasId, sceneData) {
     let scene = new Scene(canvasId, sceneData);
     scene.draw();
-    scene.update();
 }
 
 const SCENE_DATA = require('./scene-data.json');
