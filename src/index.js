@@ -1,7 +1,7 @@
 import $ from 'jquery';
 import * as math from 'mathjs';
 
-import geometries from './geometries.js';
+import geo from './geometries.js';
 
 function line2d(v1, v2) {
     return function(v) {
@@ -30,8 +30,18 @@ function triangleColor(n) {
 }
 
 class Triangle {
-    constructor(data, transMatrix, normalMatrix) {
-        this.vs = JSON.parse(JSON.stringify([data.v0, data.v1, data.v2]));
+    constructor(model, data, transMatrix, normalMatrix) {
+        this.vs = data.vertices.map(function(vIndices) {
+            let v = {};
+            v.v = model.vertices[vIndices.vertexIndex - 1];
+            v.v = [v.v.x, v.v.y, v.v.z];
+            v.n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
+            v.n = [v.n.x, v.n.y, v.n.z];
+            v.t = model.textureCoords[vIndices.textureCoordsIndex - 1];
+            v.t = [v.t.u, v.t.v, v.t.w];
+            return v;
+        }
+        );
         for (let v of this.vs) {
             v.v = Camera.transform(transMatrix, v.v);
             v.n = Camera.normalTransform(normalMatrix, v.n);
@@ -317,15 +327,16 @@ class Scene {
 
     drawShape(shape) {
         let camera = this.camera;
-        let geometry = geometries[shape.geometry];
+        let geometry = geo.geometries[shape.geometry];
         let transMatrix = math.multiply(camera.transMatrix, shape.transMatrix);
         let normalMatrix = math.transpose(math.pinv(math.multiply(camera.viewMatrix, shape.transMatrix)));
         let scene = this;
         let perspInv = math.pinv(camera.perspMatrix);
         let glPositions = [];
         let glColors = [];
-        for (const triangleData of geometry.data) {
-            let triangle = new Triangle(triangleData, transMatrix, normalMatrix);
+        let model = geometry.models[0];
+        for (const triangleData of model.faces) {
+            let triangle = new Triangle(model, triangleData, transMatrix, normalMatrix);
             let lightingPhong = function(triangle, v) {
                 return scene.clacLighting(shape.material, v, perspInv, camera.normalMatrix);
             };
@@ -373,7 +384,7 @@ class Scene {
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.vertexAttribPointer(colorAttributeLocation, 4, gl.FLOAT, false, 0, 0);
         
-        gl.drawArrays(gl.TRIANGLES, 0, 3 * geometry.data.length);
+        gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
 
     draw() {
@@ -381,7 +392,9 @@ class Scene {
     }
 }
 
-function main(canvasId, sceneData) {
+async function main(canvasId, sceneData) {
+    await geo.loadAll();
+    
     let scene = new Scene(canvasId, sceneData);
     scene.draw();
 }
