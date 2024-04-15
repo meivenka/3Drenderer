@@ -13,6 +13,26 @@ function glAttributeArray(gl, glShader, attribute, array, size, type) {
     gl.vertexAttribPointer(attributeLocation, size, type, false, 0, 0);
 }
 
+function glUniformMatrix(gl, glShader, uniform, matrix, size) {
+    var uniformMatrixfv = {};
+    switch (size) {
+    case 2:
+        uniformMatrixfv = gl.uniformMatrix2fv;
+        break;
+    case 3:
+        uniformMatrixfv = gl.uniformMatrix3fv;
+        break;
+    case 4:
+        uniformMatrixfv = gl.uniformMatrix4fv;
+        break;
+    default:
+        throw new Error("glUniformMatrix: size of matrix should be 2x2, 3x3, or 4x4");
+    }
+
+    var location = gl.getUniformLocation(glShader, uniform);
+    $.proxy(uniformMatrixfv, gl)(location, false, matrix.toArray().flat());
+}
+
 function line2d(v1, v2) {
     return function(v) {
         return (v1[1] - v2[1]) * v[0] + (v2[0] - v1[0]) * v[1] + (v1[0] * v2[1] - v2[0] * v1[1]);
@@ -21,42 +41,6 @@ function line2d(v1, v2) {
 
 function normalize(v) {
     return math.divide(v, math.norm(v));
-}
-
-function triangleColor(n) {
-    let dotp = 0.707 * n[0] + 0.5 * n[1] + 0.5 * n[2];
-    dotp = Math.abs(dotp);
-    
-    if (dotp > 1)
-      dotp = 1;
-
-    let c = [];
-    c[0] = 0.95 * dotp;
-    c[1] = 0.65 * dotp;
-    c[2] = 0.88 * dotp;
-    c[3] = 1;
-
-    return c;
-}
-
-class Triangle {
-    constructor(model, data, transMatrix, normalMatrix) {
-        this.vs = data.vertices.map(function(vIndices) {
-            let v = {};
-            v.v = model.vertices[vIndices.vertexIndex - 1];
-            v.v = [v.v.x, v.v.y, v.v.z];
-            v.n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
-            v.n = [v.n.x, v.n.y, v.n.z];
-            v.t = model.textureCoords[vIndices.textureCoordsIndex - 1];
-            v.t = [v.t.u, v.t.v, v.t.w];
-            return v;
-        }
-        );
-        for (let v of this.vs) {
-            v.v = Camera.transform(transMatrix, v.v);
-            v.n = Camera.normalTransform(normalMatrix, v.n);
-        }
-    }
 }
 
 class Shape {
@@ -309,23 +293,32 @@ class Scene {
         let glNormals = [];
         let glTextureCoords = [];
         let model = geometry.models[0];
-        for (const triangleData of model.faces) {
-            let triangle = new Triangle(model, triangleData, transMatrix, normalMatrix);
-            let lightingPhong = function(triangle, v) {
+        for (const face of model.faces) {
+            let lightingPhong = function(v) {
                 return scene.clacLighting(shape.material, v, perspInv, camera.normalMatrix);
             };
-            let shader = function(triangle, v) {
+            let shader = function(v) {
                 let lighting = lightingPhong;
-                let lightingColor = lighting(triangle, v);
+                let lightingColor = lighting(v);
                 let textureColor = shape.getTextureColor(v.t);
                 let color = math.add(lightingColor, textureColor);
                 color = color.map((n) => Math.min(n, 1));
                 return color;
             }
-            let colors = triangle.vs.map((v) => (shader(triangle, v)));
-            let positions = triangle.vs.map((v) => v.v);
-            let normals = triangle.vs.map((v) => v.n);
-            let textureCoords = triangle.vs.map((v) => v.t);
+            let vs = face.vertices.map(function(vIndices) {
+                let v = {};
+                v.v = model.vertices[vIndices.vertexIndex - 1];
+                v.v = [v.v.x, v.v.y, v.v.z];
+                v.n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
+                v.n = [v.n.x, v.n.y, v.n.z];
+                v.t = model.textureCoords[vIndices.textureCoordsIndex - 1];
+                v.t = [v.t.u, v.t.v, v.t.w];
+                return v;
+            }
+                                       );
+            let positions = vs.map((v) => v.v);
+            let normals = vs.map((v) => v.n);
+            let textureCoords = vs.map((v) => v.t);
             glPositions.push.apply(glPositions, positions.flat());
             glNormals.push.apply(glNormals, normals.flat());
             glTextureCoords.push.apply(glTextureCoords, textureCoords.flat());
@@ -338,6 +331,9 @@ class Scene {
         glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
         glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
         glAttributeArray(gl, glShader, "texture_coord", new Float32Array(glTextureCoords), 3, gl.FLOAT);
+
+        glUniformMatrix(gl, glShader, "trans_matrix", transMatrix, 4);
+        glUniformMatrix(gl, glShader, "normal_matrix", normalMatrix, 4);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
