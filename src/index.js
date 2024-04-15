@@ -305,23 +305,19 @@ class Scene {
                 color = color.map((n) => Math.min(n, 1));
                 return color;
             }
-            let vs = face.vertices.map(function(vIndices) {
-                let v = {};
-                v.v = model.vertices[vIndices.vertexIndex - 1];
-                v.v = [v.v.x, v.v.y, v.v.z];
-                v.n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
-                v.n = [v.n.x, v.n.y, v.n.z];
-                v.t = model.textureCoords[vIndices.textureCoordsIndex - 1];
-                v.t = [v.t.u, v.t.v, v.t.w];
-                return v;
-            }
-                                       );
-            let positions = vs.map((v) => v.v);
-            let normals = vs.map((v) => v.n);
-            let textureCoords = vs.map((v) => v.t);
-            glPositions.push.apply(glPositions, positions.flat());
-            glNormals.push.apply(glNormals, normals.flat());
-            glTextureCoords.push.apply(glTextureCoords, textureCoords.flat());
+            face.vertices.forEach(function(vIndices) {
+                let v = model.vertices[vIndices.vertexIndex - 1];
+                v = [v.x, v.y, v.z];
+                glPositions.push.apply(glPositions, v);
+                
+                let n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
+                n = [n.x, n.y, n.z];
+                glNormals.push.apply(glNormals, n);
+                
+                let t = model.textureCoords[vIndices.textureCoordsIndex - 1];
+                t = [t.u, t.v, t.w];
+                glTextureCoords.push.apply(glTextureCoords, t);
+            });
         }
 
         // TODO move to canvas
