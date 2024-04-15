@@ -3,6 +3,16 @@ import * as math from 'mathjs';
 
 import geo from './geometries.js';
 
+function glAttributeArray(gl, glShader, attribute, array, size, type) {
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
+    var attributeLocation = gl.getAttribLocation(glShader, attribute);
+    gl.enableVertexAttribArray(attributeLocation);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.vertexAttribPointer(attributeLocation, size, type, false, 0, 0);
+}
+
 function line2d(v1, v2) {
     return function(v) {
         return (v1[1] - v2[1]) * v[0] + (v2[0] - v1[0]) * v[1] + (v1[0] * v2[1] - v2[0] * v1[1]);
@@ -333,7 +343,8 @@ class Scene {
         let scene = this;
         let perspInv = math.pinv(camera.perspMatrix);
         let glPositions = [];
-        let glColors = [];
+        let glNormals = [];
+        let glTextureCoords = [];
         let model = geometry.models[0];
         for (const triangleData of model.faces) {
             let triangle = new Triangle(model, triangleData, transMatrix, normalMatrix);
@@ -357,32 +368,20 @@ class Scene {
             }
             let colors = triangle.vs.map((v) => (shader(triangle, v)));
             let positions = triangle.vs.map((v) => v.v);
+            let normals = triangle.vs.map((v) => v.n);
+            let textureCoords = triangle.vs.map((v) => v.t);
             glPositions.push.apply(glPositions, positions.flat());
-            glColors.push.apply(glColors, colors.flat());
-            // this.canvas.drawTriangle(triangle, shader);
+            glNormals.push.apply(glNormals, normals.flat());
+            glTextureCoords.push.apply(glTextureCoords, textureCoords.flat());
         }
 
         // TODO move to canvas
         let gl = this.canvas.gl;
         let glShader = this.canvas.glShader;
-        
-        var positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(glPositions), gl.STATIC_DRAW);
-        
-        var colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(glColors), gl.STATIC_DRAW);
-        
-        var positionAttributeLocation = gl.getAttribLocation(glShader, "position");
-        gl.enableVertexAttribArray(positionAttributeLocation);
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 0, 0);
-        
-        var colorAttributeLocation = gl.getAttribLocation(glShader, "color");
-        gl.enableVertexAttribArray(colorAttributeLocation);
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.vertexAttribPointer(colorAttributeLocation, 4, gl.FLOAT, false, 0, 0);
+
+        glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
+        glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
+        glAttributeArray(gl, glShader, "texture_coord", new Float32Array(glTextureCoords), 3, gl.FLOAT);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
