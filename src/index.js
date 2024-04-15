@@ -275,16 +275,6 @@ class Scene {
                 let N = v.n;
                 let lightN = normalize(math.add(light.from, math.multiply(-1, light.to)));
                 let L = Camera.normalTransform(cameraNormalMatrix, lightN);
-                /* let lightN2 = Vector.normalize(Vector.add([light.to, math.multiply(-1, light.from)]));
-                 * let L2 = Camera.normalTransform(cameraNormalMatrix, lightN2);
-                 * let lightFrom = Camera.transform(cameraNormalMatrix.inv().transpose(), light.from);
-                 * let lightTo = Camera.transform(cameraNormalMatrix.inv().transpose(), light.to);
-                 * let L3 = Vector.normalize(Vector.add([lightFrom, math.multiply(-1, lightTo)]));
-                 * L = L3;
-                 * console.log(lightN, lightN2);
-                 * console.log(L, L2, L3);
-                 * console.log(cameraNormalMatrix);
-                 * throw new Error("bye"); */
                 let R = [0, 0, 0];
                 if (math.dot(L, N) > 0) {
                     R = normalize(math.add(math.multiply(2 * math.dot(L, N), N), math.multiply(-1, L)));
