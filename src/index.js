@@ -57,31 +57,6 @@ class Triangle {
             v.n = Camera.normalTransform(normalMatrix, v.n);
         }
     }
-
-    barycentric(v) {
-        var f12 = line2d(this.vs[1].v, this.vs[2].v);
-        var f20 = line2d(this.vs[2].v, this.vs[0].v);
-        var f01 = line2d(this.vs[0].v, this.vs[1].v);
-        var alpha = f12(v) / f12(this.vs[0].v);
-        var beta = f20(v) / f20(this.vs[1].v);
-        var gamma = f01(v) / f01(this.vs[2].v);
-        return [alpha, beta, gamma];
-    }
-
-    getInside(v) {
-        let b = this.barycentric(v);
-        if (!(b[0] > 0 && b[1] > 0 && b[2] > 0)) {
-            return null;
-        }
-        let result = {};
-        result.v = math.add(math.multiply(b[0], this.vs[0].v), math.multiply(b[1], this.vs[1].v), math.multiply(b[2], this.vs[2].v));
-        result.n = math.add(math.multiply(b[0], this.vs[0].n), math.multiply(b[1], this.vs[1].n), math.multiply(b[2], this.vs[2].n));
-        result.t = math.multiply(result.v[2],
-                                  math.add(math.multiply(b[0] / this.vs[0].v[2], this.vs[0].t),
-                                              math.multiply(b[1] / this.vs[1].v[2], this.vs[1].t),
-                                              math.multiply(b[2] / this.vs[2].v[2], this.vs[2].t)));
-        return result;
-    }
 }
 
 class Shape {
@@ -256,7 +231,7 @@ class Canvas {
 }
 
 class Scene {
-    constructor(id, sceneData, shaderType, aa = [[0, 0, 1]]) {
+    constructor(id, sceneData) {
         let cameraData = sceneData.camera;
         let cameraFrom = cameraData.from;
         let cameraTo = cameraData.to;
@@ -281,8 +256,6 @@ class Scene {
         this.shapes = sceneData.shapes.map((data) => new Shape(data));
 
         this.lights = sceneData.lights;
-
-        this.shaderType = shaderType;
     }
     
     clacLighting(material, v, perspInv, cameraNormalMatrix) {
@@ -351,15 +324,8 @@ class Scene {
             let lightingPhong = function(triangle, v) {
                 return scene.clacLighting(shape.material, v, perspInv, camera.normalMatrix);
             };
-            let lightingGouraud = function(triangle, v) {
-                let colors = triangle.vs.map((v) => scene.clacLighting(shape.material, v, perspInv, camera.normalMatrix));
-                let b = triangle.barycentric(v.v);
-                let color = math.add(math.multiply(b[0], colors[0]), math.multiply(b[1], colors[1]), math.multiply(b[2], colors[2]));
-                return color;
-            };
-            let shaderType = this.shaderType;
             let shader = function(triangle, v) {
-                let lighting = (shaderType == "Phong") ? lightingPhong : lightingGouraud;
+                let lighting = lightingPhong;
                 let lightingColor = lighting(triangle, v);
                 let textureColor = shape.getTextureColor(v.t);
                 let color = math.add(lightingColor, textureColor);
