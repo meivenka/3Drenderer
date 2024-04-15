@@ -331,6 +331,9 @@ class Scene {
         glUniformMatrix(gl, glShader, "trans_matrix", transMatrix, 4);
         glUniformMatrix(gl, glShader, "normal_matrix", normalMatrix, 4);
         
+        glUniformMatrix(gl, glShader, "persp_matrix_inv", perspInv, 4);
+        glUniformMatrix(gl, glShader, "camera_normal_matrix", camera.normalMatrix, 4);
+        
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
 
