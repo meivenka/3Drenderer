@@ -221,7 +221,7 @@ class Scene {
         let cameraTo = cameraData.to;
         let bounds = cameraData.bounds;
         let n = normalize(math.add(cameraFrom, math.multiply(-1, cameraTo)));
-        let u = math.cross([0, 1, 0], n);
+        let u = normalize(math.cross([0, 1, 0], n));
         let v = math.cross(n, u);
         let r = cameraFrom;
         let left = bounds[3];
