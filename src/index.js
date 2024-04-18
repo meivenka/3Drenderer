@@ -331,6 +331,15 @@ class Scene {
             "direction": light.type == "directional" ? normalize(math.subtract(light.to, light.from)) : [1, 0, 0]
         }));
 
+        let glMaterial = {
+            "color": shape.material.Cs,
+            "ka": shape.material.Ka,
+            "ks": shape.material.Ks,
+            "kd": shape.material.Kd,
+            "kt": shape.material.Kt,
+            "n": shape.material.n
+        };
+
         // TODO move to canvas
         let gl = this.canvas.gl;
         let glShader = this.canvas.glShader;
@@ -346,6 +355,8 @@ class Scene {
         glUniformMatrix(gl, glShader, "camera_normal_matrix", camera.normalMatrix, 4);
 
         glUniformStructArray(gl, glShader, "lights", glLights);
+
+        glUniformStruct(gl, glShader, "material", glMaterial);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
