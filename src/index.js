@@ -13,6 +13,61 @@ function glAttributeArray(gl, glShader, attribute, array, size, type) {
     gl.vertexAttribPointer(attributeLocation, size, type, false, 0, 0);
 }
 
+function glUniformStruct(gl, glShader, struct, value) {
+    for (const [field, fvalue] of Object.entries(value)) {
+        let location = gl.getUniformLocation(glShader, struct + "." + field);
+        switch (typeof fvalue) {
+        case 'boolean':
+            gl.uniform1i(location, fvalue);
+            break;
+            
+        case 'number':
+            gl.uniform1f(location, fvalue);
+            break;
+
+        case 'object':
+            if (Array.isArray(fvalue)) {
+                let uniformf = {};
+                switch (fvalue.length) {
+                case 2:
+                    uniformf = gl.uniform2fv;
+                    break;
+                case 3:
+                    uniformf = gl.uniform3fv;
+                    break;
+                case 4:
+                    uniformf = gl.uniform4fv;
+                    break;
+                default:
+                    throw new Error("vector size for glsl should be 2, 3 or 4");
+                }
+                $.proxy(uniformf, gl)(location, fvalue);
+            } else {
+                throw new Error("Embedded struct for glsl value is not supported");
+            }
+            break;
+            
+        default:
+            throw new Error("Unsupported type for glsl uniform struct, " + (typeof fvalue));
+        }
+    }
+}
+
+function glUniformStructArray(gl, glShader, variable, values, maxLength) {
+    if (values.length > maxLength) {
+        throw new Error("length of values " + values.length + " is greater than the maximum " + maxLength);
+    }
+
+    for (let i = 0; i < values.length; i++) {
+        let struct = variable + "[" + i + "]";
+        let value = values[i];
+        glUniformStruct(gl, glShader, struct, value);
+    }
+    
+    let lengthLocation = gl.getUniformLocation(glShader, "n_" + variable);
+    gl.uniform1i(lengthLocation, values.length);
+}
+
 function glUniformMatrix(gl, glShader, uniform, matrix, size) {
     var uniformMatrixfv = {};
     switch (size) {
@@ -240,47 +295,7 @@ class Scene {
         this.shapes = sceneData.shapes.map((data) => new Shape(data));
 
         this.lights = sceneData.lights;
-    }
-    
-    clacLighting(material, v, perspInv, cameraNormalMatrix) {
-        let color = [0, 0, 0];
-
-        for (const light of this.lights) {
-            switch (light.type) {
-            case "ambient":
-                let dColor = math.multiply(light.intensity * material.Ka, light.color);
-                dColor = math.dotMultiply(dColor, material.Cs);
-                color = math.add(color, dColor);
-                break;
-
-            case "directional":
-                let vCam = Camera.transform(perspInv, v.v);
-                let E = normalize(math.multiply(-1, vCam));
-                let N = v.n;
-                let lightN = normalize(math.add(light.from, math.multiply(-1, light.to)));
-                let L = Camera.normalTransform(cameraNormalMatrix, lightN);
-                let R = [0, 0, 0];
-                if (math.dot(L, N) > 0) {
-                    R = normalize(math.add(math.multiply(2 * math.dot(L, N), N), math.multiply(-1, L)));
-                }
-                let dSpecular = math.multiply(
-                  light.intensity * Math.pow(Math.max(math.dot(R, E), 0), material.n) * material.Ks,
-                  light.color);
-                let dDiffuse = math.multiply(light.intensity * Math.max(math.dot(N, L), 0) * material.Kd, light.color);
-                dDiffuse = math.dotMultiply(dDiffuse, material.Cs);
-                color = math.add(color, dSpecular, dDiffuse);
-                break;
-                
-            default:
-                throw new Error("Invalid light type", light.type);
-                break;
-            }
-        }
-
-        color = color.map((n) => Math.min(n, 1));
-        color.push(1);
-        return color;
-    }
+    }    
 
     drawShape(shape) {
         let camera = this.camera;
@@ -294,17 +309,6 @@ class Scene {
         let glTextureCoords = [];
         let model = geometry.models[0];
         for (const face of model.faces) {
-            let lightingPhong = function(v) {
-                return scene.clacLighting(shape.material, v, perspInv, camera.normalMatrix);
-            };
-            let shader = function(v) {
-                let lighting = lightingPhong;
-                let lightingColor = lighting(v);
-                let textureColor = shape.getTextureColor(v.t);
-                let color = math.add(lightingColor, textureColor);
-                color = color.map((n) => Math.min(n, 1));
-                return color;
-            }
             face.vertices.forEach(function(vIndices) {
                 let v = model.vertices[vIndices.vertexIndex - 1];
                 v = [v.x, v.y, v.z];
@@ -320,6 +324,13 @@ class Scene {
             });
         }
 
+        let glLights = this.lights.map((light) => ({
+            "is_directional": light.type == "directional",
+            "color": light.color,
+            "intensity": light.intensity,
+            "direction": light.type == "directional" ? normalize(math.subtract(light.to, light.from)) : [1, 0, 0]
+        }));
+
         // TODO move to canvas
         let gl = this.canvas.gl;
         let glShader = this.canvas.glShader;
@@ -333,6 +344,8 @@ class Scene {
         
         glUniformMatrix(gl, glShader, "persp_matrix_inv", perspInv, 4);
         glUniformMatrix(gl, glShader, "camera_normal_matrix", camera.normalMatrix, 4);
+
+        glUniformStructArray(gl, glShader, "lights", glLights);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
