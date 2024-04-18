@@ -3,6 +3,30 @@ import * as math from 'mathjs';
 
 import geo from './geometries.js';
 
+var counter = (function () {
+    var i = 1;
+
+    return function () {
+        return i++;
+    }
+})();
+
+function glUniformTexture(gl, glShader, texture, glTexture) {
+    let textureBuffer = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, glTexture.width, glTexture.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, glTexture.data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    let location = gl.getUniformLocation(glShader, texture);
+    let flagLocation = gl.getUniformLocation(glShader, "with_" + texture);
+    let unit = counter();
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
+    gl.uniform1i(location, unit);
+    gl.uniform1i(flagLocation, 1);
+}
+
 function glAttributeArray(gl, glShader, attribute, array, size, type) {
     var buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -88,12 +112,6 @@ function glUniformMatrix(gl, glShader, uniform, matrix, size) {
     $.proxy(uniformMatrixfv, gl)(location, false, matrix.toArray().flat());
 }
 
-function line2d(v1, v2) {
-    return function(v) {
-        return (v1[1] - v2[1]) * v[0] + (v2[0] - v1[0]) * v[1] + (v1[0] * v2[1] - v2[0] * v1[1]);
-    }
-}
-
 function normalize(v) {
     return math.divide(v, math.norm(v));
 }
@@ -157,42 +175,6 @@ class Shape {
         this.transMatrix = transMatrix;
 
         this.material = shapeData.material;
-    }
-
-    getTextureColorPrecise(x, y) {
-        let texture = textures[this.material.texture];
-        x %= texture.width;
-        x = texture.width - 1 - x;
-        y %= texture.height;
-        let index = x + y * texture.width;
-        let offset = 4 * index;
-        let color = Array.from(texture.data.slice(offset, offset + 4));
-        color = color.map((n) => n / 255);
-        return color;
-    }
-
-    getTextureColor(t) {
-        if ("texture" in this.material) {
-            let Kt = this.material.Kt;
-            let x = t[0] * (texture.width - 1);
-            let x0 = Math.floor(x);
-            let x1 = x0 + 1;
-            let y = t[1] * (texture.height - 1);
-            let y0 = Math.floor(y);
-            let y1 = y0 + 1;
-            let c00 = this.getTextureColorPrecise(x0, y0);
-            let c01 = this.getTextureColorPrecise(x0, y1);
-            let c10 = this.getTextureColorPrecise(x1, y0);
-            let c11 = this.getTextureColorPrecise(x1, y1);
-            let c0 = math.add(math.multiply(y - y0, c01), math.multiply(y1 - y, c00));
-            let c1 = math.add(math.multiply(y - y0, c11), math.multiply(y1 - y, c10));
-            let color = math.add(math.multiply(x - x0, c1), math.multiply(x1 - x, c0));
-            color = math.multiply(Kt, color);
-            
-            return color;
-        } else {
-            return [0, 0, 0, 0];
-        }
     }
 }
 
@@ -336,9 +318,11 @@ class Scene {
             "ka": shape.material.Ka,
             "ks": shape.material.Ks,
             "kd": shape.material.Kd,
-            "kt": shape.material.Kt,
             "n": shape.material.n
         };
+
+        let glTexture = geo.textures["./test.png"];
+        console.log(glTexture);
 
         // TODO move to canvas
         let gl = this.canvas.gl;
@@ -357,12 +341,16 @@ class Scene {
         glUniformStructArray(gl, glShader, "lights", glLights);
 
         glUniformStruct(gl, glShader, "material", glMaterial);
+
+        glUniformTexture(gl, glShader, "ka_texture", glTexture);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
 
     draw() {
-        this.shapes.forEach((shape) => this.drawShape(shape));
+        for (const shape of this.shapes) {
+            this.drawShape(shape);
+        }
     }
 }
 
