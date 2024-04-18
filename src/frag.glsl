@@ -50,7 +50,7 @@ void main()
       vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
       vec3 dcolor_specular = light.intensity * pow(max(dot(R, E), 0.0), material.n) * material.ks * light.color;
 
-      vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.color * light.color;
+      vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.color * material.kd * light.color;
       
       color += dcolor_specular + dcolor_diffuse;
     } else {
