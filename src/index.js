@@ -12,6 +12,11 @@ var counter = (function () {
 })();
 
 function glUniformTexture(gl, glShader, texture, glTexture) {
+    let flagLocation = gl.getUniformLocation(glShader, "with_" + texture);
+    if (!glTexture) {
+        gl.uniform1i(flagLocation, 0);
+        return ;
+    }
     let textureBuffer = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, glTexture.width, glTexture.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, glTexture.data);
@@ -19,7 +24,6 @@ function glUniformTexture(gl, glShader, texture, glTexture) {
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     let location = gl.getUniformLocation(glShader, texture);
-    let flagLocation = gl.getUniformLocation(glShader, "with_" + texture);
     let unit = counter();
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
@@ -342,20 +346,14 @@ class Scene {
 
         glUniformStruct(gl, glShader, "material", glMaterial);
 
-        if (material.map_Ka.file) {
-          let glTexture = geo.textures[material.map_Ka.file];
-            glUniformTexture(gl, glShader, "ka_texture", glTexture);
-        }
+        let glTextureKa = geo.textures[material.map_Ka.file];
+        glUniformTexture(gl, glShader, "ka_texture", glTextureKa);
 
-        if (material.map_Ks.file) {
-          let glTexture = geo.textures[material.map_Ks.file];
-            glUniformTexture(gl, glShader, "ks_texture", glTexture);
-        }
+        let glTextureKs = geo.textures[material.map_Ks.file];
+        glUniformTexture(gl, glShader, "ks_texture", glTextureKs);
 
-        if (material.map_Kd.file) {
-          let glTexture = geo.textures[material.map_Kd.file];
-            glUniformTexture(gl, glShader, "kd_texture", glTexture);
-        }
+        let glTextureKd = geo.textures[material.map_Kd.file];
+        glUniformTexture(gl, glShader, "kd_texture", glTextureKd);
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
