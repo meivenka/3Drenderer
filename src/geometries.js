@@ -12,15 +12,23 @@ var textures = {
 };
 
 const geometriesPaths = {
-    "box.obj": "./box.obj"
+    "box.obj": "./box.obj",
+    "background.obj": "./background.obj",
+    "ground.obj": "./ground.obj",
+    "tree.obj": "./tree.obj",
 }
 
 const materialLibsPaths = {
-    "box.mtl": "./box.mtl"
+    "box.mtl": "./box.mtl",
+    "background.mtl": "./background.mtl",
+    "ground.mtl": "./ground.mtl",
+    "tree.mtl": "./tree.mtl",
 }
 
 const texturesPaths = {
-    "box.png": "./box.png"
+    "box.png": "./box.png",
+    "background.png": "./background.png",
+    "ground.png": "./ground.png",
 }
 
 async function loadObj(name, path) {
@@ -28,6 +36,7 @@ async function loadObj(name, path) {
         let obj = new OBJFile(objContent);
         let geometry = obj.parse();
         geometries[name] = geometry;
+        console.log(geometry);
     });
 }
 
