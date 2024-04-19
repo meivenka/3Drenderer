@@ -313,16 +313,16 @@ class Scene {
             "direction": light.type == "directional" ? normalize(math.subtract(light.to, light.from)) : [1, 0, 0]
         }));
 
-        let glMaterial = {
-            "color": shape.material.Cs,
-            "ka": shape.material.Ka,
-            "ks": shape.material.Ks,
-            "kd": shape.material.Kd,
-            "n": shape.material.n
-        };
+        let material = geo.materialLibs[geometry.materialLibraries[0]][0];
 
-        let glTexture = geo.textures["./test.png"];
-        console.log(glTexture);
+        let rgb2vec = ((rgb) => [rgb.red, rgb.green, rgb.blue]);
+
+        let glMaterial = {
+            "ka": rgb2vec(material.Ka),
+            "ks": rgb2vec(material.Ks),
+            "kd": rgb2vec(material.Kd),
+            "n": material.illum
+        };
 
         // TODO move to canvas
         let gl = this.canvas.gl;
@@ -342,7 +342,20 @@ class Scene {
 
         glUniformStruct(gl, glShader, "material", glMaterial);
 
-        glUniformTexture(gl, glShader, "ka_texture", glTexture);
+        if (material.map_Ka.file) {
+          let glTexture = geo.textures[material.map_Ka.file];
+            glUniformTexture(gl, glShader, "ka_texture", glTexture);
+        }
+
+        if (material.map_Ks.file) {
+          let glTexture = geo.textures[material.map_Ks.file];
+            glUniformTexture(gl, glShader, "ks_texture", glTexture);
+        }
+
+        if (material.map_Kd.file) {
+          let glTexture = geo.textures[material.map_Kd.file];
+            glUniformTexture(gl, glShader, "kd_texture", glTexture);
+        }
         
         gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }

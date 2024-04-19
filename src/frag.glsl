@@ -11,8 +11,7 @@ struct Light
 
 struct Material
 {
-  vec3 color;
-  float ka, kd, ks;
+  vec3 ka, kd, ks;
   float n;
 };
 
@@ -30,6 +29,10 @@ uniform int n_lights;
 uniform Material material;
 uniform bool with_ka_texture;
 uniform sampler2D ka_texture;
+uniform bool with_kd_texture;
+uniform sampler2D kd_texture;
+uniform bool with_ks_texture;
+uniform sampler2D ks_texture;
 
 vec3 vec4_to_vec3(vec4 v)
 {
@@ -56,9 +59,17 @@ void main()
       vec3 N = normalize(vec4_to_vec3(v_normal));
       vec3 L = normalize(vec4_to_vec3(vec4(-light.direction, 1.0) * camera_normal_matrix));
       vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
-      vec3 dcolor_specular = light.intensity * pow(max(dot(R, E), 0.0), material.n) * material.ks * light.color;
+      vec3 ks_texture_color = vec3(1.0, 1.0, 1.0);
+      if (with_ks_texture) {
+        ks_texture_color = get_texture_color(ks_texture);
+      }
+      vec3 dcolor_specular = light.intensity * pow(max(dot(R, E), 0.0), material.n) * material.ks * ks_texture_color * light.color;
 
-      vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.color * material.kd * light.color;
+      vec3 kd_texture_color = vec3(1.0, 1.0, 1.0);
+      if (with_kd_texture) {
+        kd_texture_color = get_texture_color(kd_texture);
+      }
+      vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.kd * kd_texture_color * light.color;
       
       color += dcolor_specular + dcolor_diffuse;
     } else {

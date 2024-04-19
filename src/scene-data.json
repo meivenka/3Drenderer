@@ -3,28 +3,16 @@
       {
           "id": "teapot1",
           "notes": "",
-          "geometry": "teapot",
-          "material": {
-              "Cs": [
-                1,
-                0,
-                0
-              ],
-              "Ka": 0.8,
-              "Kd": 0.2,
-              "Ks": 0.8,
-              "n": 2.0,
-              "texture-hidden": "logo"
-          },
+          "geometry": "box.obj",
           "transforms": [
             {
                 "Rx": -23
             },
             {
                 "S": [
-                  0.05,
-                  0.05,
-                  0.05
+                  0.5,
+                  0.5,
+                  0.5
                 ]
             },
             {
@@ -37,30 +25,18 @@
           ]
       },
       {
-          "id": "teapot2",
+          "id": "box1",
           "notes": "",
-          "geometry": "teapot",
-          "material": {
-              "Cs": [
-                0,
-                1,
-                0
-              ],
-              "Ka": 0.8,
-              "Kd": 0.2,
-              "Ks": 0.8,
-              "n": 2.0,
-              "texture-hidden": "logo"
-          },
+          "geometry": "box.obj",
           "transforms": [
             {
                 "Rx": 23
             },
             {
                 "S": [
-                  0.05,
-                  0.05,
-                  0.05
+                  0.5,
+                  0.5,
+                  0.5
                 ]
             },
             {
