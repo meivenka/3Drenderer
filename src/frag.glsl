@@ -13,26 +13,33 @@ struct Material
 {
   vec3 ka, kd, ks;
   float n;
+  bool with_ka_texture;
+  sampler2D ka_texture;
+  bool with_kd_texture;
+  sampler2D kd_texture;
+  bool with_ks_texture;
+  sampler2D ks_texture;
 };
 
 varying vec4 v_position;
 varying vec4 v_normal;
 varying vec4 v_texture_coord;
+varying float v_material_index;
 
 uniform mat4 persp_matrix_inv;
 uniform mat4 camera_normal_matrix;
 
 #define MAX_LIGHTS 20
+#define MAX_MATERIALS 20
 
 uniform Light lights[MAX_LIGHTS];
 uniform int n_lights;
 uniform Material material;
-uniform bool with_ka_texture;
-uniform sampler2D ka_texture;
-uniform bool with_kd_texture;
-uniform sampler2D kd_texture;
-uniform bool with_ks_texture;
-uniform sampler2D ks_texture;
+
+int float2int(float f)
+{
+  return int(f + 0.5);
+}
 
 vec3 vec4_to_vec3(vec4 v)
 {
@@ -60,22 +67,22 @@ void main()
       vec3 L = normalize(vec4_to_vec3(vec4(-light.direction, 1.0) * camera_normal_matrix));
       vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
       vec3 ks_texture_color = vec3(1.0, 1.0, 1.0);
-      if (with_ks_texture) {
-        ks_texture_color = get_texture_color(ks_texture);
+      if (material.with_ks_texture) {
+        ks_texture_color = get_texture_color(material.ks_texture);
       }
       vec3 dcolor_specular = light.intensity * pow(max(dot(R, E), 0.0), material.n) * material.ks * ks_texture_color * light.color;
 
       vec3 kd_texture_color = vec3(1.0, 1.0, 1.0);
-      if (with_kd_texture) {
-        kd_texture_color = get_texture_color(kd_texture);
+      if (material.with_kd_texture) {
+        kd_texture_color = get_texture_color(material.kd_texture);
       }
       vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.kd * kd_texture_color * light.color;
       
       color += dcolor_specular + dcolor_diffuse;
     } else {
       vec3 texture_color = vec3(1.0, 1.0, 1.0);
-      if (with_ka_texture) {
-        texture_color = get_texture_color(ka_texture);
+      if (material.with_ka_texture) {
+        texture_color = get_texture_color(material.ka_texture);
       }
       vec3 dcolor_ambient = light.intensity * material.ka * light.color * texture_color;
       color += dcolor_ambient;

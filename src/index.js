@@ -11,8 +11,8 @@ var counter = (function () {
     }
 })();
 
-function glUniformTexture(gl, glShader, texture, glTexture) {
-    let flagLocation = gl.getUniformLocation(glShader, "with_" + texture);
+function glUniformTexture(gl, glShader, prefix, texture, glTexture) {
+    let flagLocation = gl.getUniformLocation(glShader, prefix + "with_" + texture);
     if (!glTexture) {
         gl.uniform1i(flagLocation, 0);
         return ;
@@ -23,7 +23,7 @@ function glUniformTexture(gl, glShader, texture, glTexture) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    let location = gl.getUniformLocation(glShader, texture);
+    let location = gl.getUniformLocation(glShader, prefix + texture);
     let unit = counter();
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
@@ -293,69 +293,82 @@ class Scene {
         let glPositions = [];
         let glNormals = [];
         let glTextureCoords = [];
-        let model = geometry.models[0];
-        for (const face of model.faces) {
-            face.vertices.forEach(function(vIndices) {
-                let v = model.vertices[vIndices.vertexIndex - 1];
-                v = [v.x, v.y, v.z];
-                glPositions.push.apply(glPositions, v);
+        for (const model of geometry.models) {
+            let facesGroups = model.faces.reduce(
+              (groups, face) => {
+                  if (!groups[face.material]) {
+                      groups[face.material] = [];
+                  }
+                  groups[face.material].push(face);
+                  return groups;
+              }
+              , {});
+
+            for (const [materialId, faces] of Object.entries(facesGroups)) {
+                for (const face of faces) {
+                    for (const vIndices of face.vertices) {
+                        let v = model.vertices[vIndices.vertexIndex - 1];
+                        v = [v.x, v.y, v.z];
+                        glPositions.push.apply(glPositions, v);
+                        
+                        let n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
+                        n = [n.x, n.y, n.z];
+                        glNormals.push.apply(glNormals, n);
+                        
+                        let t = model.textureCoords[vIndices.textureCoordsIndex - 1];
+                        t = [t.u, t.v, t.w];
+                        glTextureCoords.push.apply(glTextureCoords, t);
+                    }
+                }
+
+                let glLights = this.lights.map((light) => ({
+                    "is_directional": light.type == "directional",
+                    "color": light.color,
+                    "intensity": light.intensity,
+                    "direction": light.type == "directional" ? normalize(math.subtract(light.to, light.from)) : [1, 0, 0]
+                }));
+
+                let material = geo.materialLibs[geometry.materialLibraries[0]].find((mtl) => mtl.name == materialId);
+
+                let rgb2vec = ((rgb) => [rgb.red, rgb.green, rgb.blue]);
+
+                let glMaterial = {
+                    "ka": rgb2vec(material.Ka),
+                    "ks": rgb2vec(material.Ks),
+                    "kd": rgb2vec(material.Kd),
+                    "n": material.illum
+                };
+
+                // TODO move to canvas
+                let gl = this.canvas.gl;
+                let glShader = this.canvas.glShader;
+
+                glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
+                glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
+                glAttributeArray(gl, glShader, "texture_coord", new Float32Array(glTextureCoords), 3, gl.FLOAT);
+
+                glUniformMatrix(gl, glShader, "trans_matrix", transMatrix, 4);
+                glUniformMatrix(gl, glShader, "normal_matrix", normalMatrix, 4);
                 
-                let n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
-                n = [n.x, n.y, n.z];
-                glNormals.push.apply(glNormals, n);
+                glUniformMatrix(gl, glShader, "persp_matrix_inv", perspInv, 4);
+                glUniformMatrix(gl, glShader, "camera_normal_matrix", camera.normalMatrix, 4);
+
+                glUniformStructArray(gl, glShader, "lights", glLights);
+
+                glUniformStruct(gl, glShader, "material", glMaterial);
+
+                let glTextureKa = geo.textures[material.map_Ka.file];
+                glUniformTexture(gl, glShader, "material.", "ka_texture", glTextureKa);
+
+                let glTextureKs = geo.textures[material.map_Ks.file];
+                glUniformTexture(gl, glShader, "material.", "ks_texture", glTextureKs);
+
+                let glTextureKd = geo.textures[material.map_Kd.file];
+                glUniformTexture(gl, glShader, "material.", "kd_texture", glTextureKd);
                 
-                let t = model.textureCoords[vIndices.textureCoordsIndex - 1];
-                t = [t.u, t.v, t.w];
-                glTextureCoords.push.apply(glTextureCoords, t);
-            });
+                gl.drawArrays(gl.TRIANGLES, 0, glPositions.length / 3);
+            }
         }
-
-        let glLights = this.lights.map((light) => ({
-            "is_directional": light.type == "directional",
-            "color": light.color,
-            "intensity": light.intensity,
-            "direction": light.type == "directional" ? normalize(math.subtract(light.to, light.from)) : [1, 0, 0]
-        }));
-
-        let material = geo.materialLibs[geometry.materialLibraries[0]][0];
-
-        let rgb2vec = ((rgb) => [rgb.red, rgb.green, rgb.blue]);
-
-        let glMaterial = {
-            "ka": rgb2vec(material.Ka),
-            "ks": rgb2vec(material.Ks),
-            "kd": rgb2vec(material.Kd),
-            "n": material.illum
-        };
-
-        // TODO move to canvas
-        let gl = this.canvas.gl;
-        let glShader = this.canvas.glShader;
-
-        glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
-        glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
-        glAttributeArray(gl, glShader, "texture_coord", new Float32Array(glTextureCoords), 3, gl.FLOAT);
-
-        glUniformMatrix(gl, glShader, "trans_matrix", transMatrix, 4);
-        glUniformMatrix(gl, glShader, "normal_matrix", normalMatrix, 4);
-        
-        glUniformMatrix(gl, glShader, "persp_matrix_inv", perspInv, 4);
-        glUniformMatrix(gl, glShader, "camera_normal_matrix", camera.normalMatrix, 4);
-
-        glUniformStructArray(gl, glShader, "lights", glLights);
-
-        glUniformStruct(gl, glShader, "material", glMaterial);
-
-        let glTextureKa = geo.textures[material.map_Ka.file];
-        glUniformTexture(gl, glShader, "ka_texture", glTextureKa);
-
-        let glTextureKs = geo.textures[material.map_Ks.file];
-        glUniformTexture(gl, glShader, "ks_texture", glTextureKs);
-
-        let glTextureKd = geo.textures[material.map_Kd.file];
-        glUniformTexture(gl, glShader, "kd_texture", glTextureKd);
-        
-        gl.drawArrays(gl.TRIANGLES, 0, 3 * model.faces.length);
     }
 
     draw() {

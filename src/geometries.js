@@ -36,7 +36,6 @@ async function loadObj(name, path) {
         let obj = new OBJFile(objContent);
         let geometry = obj.parse();
         geometries[name] = geometry;
-        console.log(geometry);
     });
 }
 
@@ -45,7 +44,6 @@ async function loadMtl(name, path) {
         let mtl = new MTLFile(objContent);
         let materialLib = mtl.parse();
         materialLibs[name] = materialLib;
-        console.log(materialLib);
     });
 }
 
