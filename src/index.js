@@ -229,7 +229,7 @@ class Canvas {
         this.canvas = $("#" + id)[0];
         this.canvas.setAttribute("width", xres);
         this.canvas.setAttribute("height", yres);
-        let gl = this.canvas.getContext("webgl");
+        let gl = this.canvas.getContext("webgl2");
         this.gl = gl;
         gl.clearColor(... color);
         gl.clear(gl.COLOR_BUFFER_BIT);
