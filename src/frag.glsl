@@ -7,6 +7,7 @@ struct Light
   float intensity;
   vec3 color;
   vec3 direction;
+  vec3 source;
 };
 
 struct Material
@@ -119,9 +120,10 @@ void main()
     }
     Light light = lights[li];
     if (light.is_directional) {
-      vec3 E = normalize(-vec4_to_vec3(v_position * persp_matrix_inv));
+      vec3 pos = vec4_to_vec3(v_position * persp_matrix_inv);
+      vec3 E = normalize(-pos);
       vec3 N = normalize(vec4_to_vec3(v_normal));
-      vec3 L = normalize(vec4_to_vec3(vec4(-light.direction, 1.0) * camera_normal_matrix));
+      vec3 L = normalize(vec4_to_vec3(vec4(light.source - pos, 1.0) * camera_normal_matrix));
       vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
       vec3 ks_texture_color = vec3(1.0, 1.0, 1.0);
       if (material.with_ks_texture) {

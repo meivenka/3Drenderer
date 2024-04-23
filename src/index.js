@@ -342,12 +342,18 @@ class Scene {
                     }
                 }
 
-                let glLights = this.lights.map((light) => ({
-                    "is_directional": light.type == "directional",
-                    "color": light.color,
-                    "intensity": light.intensity,
-                    "direction": light.type == "directional" ? normalize(math.subtract(light.to, light.from)) : [1, 0, 0]
-                }));
+                let glLights = this.lights.map(function (light) {
+                    let result ={
+                        "is_directional": light.type == "directional",
+                        "color": light.color,
+                        "intensity": light.intensity
+                    };
+                    if (result.is_directional) {
+                        result.direction = normalize(math.subtract(light.to, light.from));
+                        result.source = light.from;
+                    }
+                    return result;
+                });
 
                 let material = geo.materialLibs[geometry.materialLibraries[0]].find((mtl) => mtl.name == materialId);
 
