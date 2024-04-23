@@ -3,15 +3,33 @@ import * as math from 'mathjs';
 
 import geo from './geometries.js';
 
-var counter = (function () {
-    var i = 1;
-
-    return function () {
-        return i++;
+class IdAllocator {
+    constructor(size) {
+        this.size = size;
+        this.set = new Array(size).fill(false);
     }
-})();
 
-function glUniformTexture(gl, glShader, prefix, texture, glTexture) {
+    get() {
+        let result = this.set.findIndex((x) => !x);
+        if (result == -1) {
+            throw new Error("No available ID");
+        }
+        return result;
+    }
+
+    free(id) {
+        if (!this.set[id]) {
+            throw new Error("Freeing an unused ID", id);
+        }
+        this.set[id] = false;
+    }
+
+    freeAll() {
+        this.set = new Array(this.size).fill(false);
+    }
+}
+
+function glUniformTexture(gl, glCounter, glShader, prefix, texture, glTexture) {
     let flagLocation = gl.getUniformLocation(glShader, prefix + "with_" + texture);
     if (!glTexture) {
         gl.uniform1i(flagLocation, 0);
@@ -24,7 +42,7 @@ function glUniformTexture(gl, glShader, prefix, texture, glTexture) {
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     let location = gl.getUniformLocation(glShader, prefix + texture);
-    let unit = counter();
+    let unit = glCounter.get();
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
     gl.uniform1i(location, unit);
@@ -233,6 +251,7 @@ class Canvas {
         this.canvas.setAttribute("height", yres);
         let gl = this.canvas.getContext("webgl2");
         this.gl = gl;
+        this.glCounter = new IdAllocator(gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
         gl.clearColor(... color);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -364,6 +383,7 @@ class Scene {
 
                 // TODO move to canvas
                 let gl = this.canvas.gl;
+                let glCounter = this.canvas.glCounter;
                 let glShader = this.canvas.glShader;
 
                 glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
@@ -381,15 +401,16 @@ class Scene {
                 glUniformStruct(gl, glShader, "material", glMaterial);
 
                 let glTextureKa = geo.textures[material.map_Ka.file];
-                glUniformTexture(gl, glShader, "material.", "ka_texture", glTextureKa);
+                glUniformTexture(gl, glCounter, glShader, "material.", "ka_texture", glTextureKa);
 
                 let glTextureKs = geo.textures[material.map_Ks.file];
-                glUniformTexture(gl, glShader, "material.", "ks_texture", glTextureKs);
+                glUniformTexture(gl, glCounter, glShader, "material.", "ks_texture", glTextureKs);
 
                 let glTextureKd = geo.textures[material.map_Kd.file];
-                glUniformTexture(gl, glShader, "material.", "kd_texture", glTextureKd);
+                glUniformTexture(gl, glCounter, glShader, "material.", "kd_texture", glTextureKd);
                 
                 gl.drawArrays(gl.TRIANGLES, 0, glPositions.length / 3);
+                glCounter.freeAll();
             }
         }
     }
