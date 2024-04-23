@@ -203,7 +203,18 @@ class Shape {
 }
 
 class Camera {
-    constructor(u, v, n, r, left, right, bottom, top, near, far) {
+    constructor(from, to ,bounds) {
+        let n = normalize(math.subtract(from,  to));
+        let u = normalize(math.cross([0, 1, 0], n));
+        let v = math.cross(n, u);
+        let r = from;
+        let left = bounds[3];
+        let right = bounds[2];
+        let bottom = bounds[5];
+        let top = bounds[4];
+        let near = bounds[0];
+        let far = bounds[1];
+        
         this.viewMatrix = math.matrix(
           [
             [u[0], u[1], u[2], -math.dot(r, u)],
@@ -279,20 +290,7 @@ class Canvas {
 class Scene {
     constructor(id, sceneData) {
         let cameraData = sceneData.camera;
-        let cameraFrom = cameraData.from;
-        let cameraTo = cameraData.to;
-        let bounds = cameraData.bounds;
-        let n = normalize(math.add(cameraFrom, math.multiply(-1, cameraTo)));
-        let u = normalize(math.cross([0, 1, 0], n));
-        let v = math.cross(n, u);
-        let r = cameraFrom;
-        let left = bounds[3];
-        let right = bounds[2];
-        let bottom = bounds[5];
-        let top = bounds[4];
-        let near = bounds[0];
-        let far = bounds[1];
-        this.camera = new Camera(u, v, n, r, left, right, bottom, top, near, far);
+        this.camera = new Camera(cameraData.from, cameraData.to, cameraData.bounds);
         
         let xres = cameraData.resolution[0];
         let yres = cameraData.resolution[1];
