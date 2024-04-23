@@ -36,7 +36,7 @@ varying vec4 v_texture_coord;
 varying float v_material_index;
 
 uniform mat4 persp_matrix_inv;
-uniform mat4 camera_normal_matrix;
+uniform mat4 camera_normal_matrix_inv;
 
 #define MAX_LIGHTS 20
 #define MAX_MATERIALS 20
@@ -44,6 +44,9 @@ uniform mat4 camera_normal_matrix;
 uniform Light lights[MAX_LIGHTS];
 uniform int n_lights;
 uniform Material material;
+
+uniform bool has_reflection;
+uniform samplerCube env_tex;
 
 vec2 perlin_gradient(vec2 xy, float seed)
 {
@@ -113,16 +116,16 @@ vec3 get_procedural_color(Material material)
 void main()
 {
   vec3 color = vec3(0.0, 0.0, 0.0);
-
+  vec3 pos = vec4_to_vec3(v_position * persp_matrix_inv);
+  vec3 E = normalize(-pos);
+  vec3 N = normalize(vec4_to_vec3(v_normal));
+  
   for (int li = 0; li < MAX_LIGHTS; li++) {
     if (li >= n_lights) {
       break;
     }
     Light light = lights[li];
     if (light.is_directional) {
-      vec3 pos = vec4_to_vec3(v_position * persp_matrix_inv);
-      vec3 E = normalize(-pos);
-      vec3 N = normalize(vec4_to_vec3(v_normal));
       vec3 L = normalize(light.source - pos);
       vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
       vec3 ks_texture_color = vec3(1.0, 1.0, 1.0);
@@ -149,6 +152,12 @@ void main()
       color += dcolor_ambient;
     }
   }
-    
+  
+  if (has_reflection) {
+    vec3 R = reflect(pos, N);
+    vec3 R_world = normalize(vec4_to_vec3(vec4(R, 1.0) * camera_normal_matrix_inv));
+    color = textureCube(env_tex, R).xyz;
+  }
+
   gl_FragColor = vec4(color, 1.0);
 }

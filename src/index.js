@@ -33,11 +33,22 @@ class IdAllocator {
     }
 }
 
+function glTextureUnbind(gl, glTextureCounter, textureId) {
+    if (textureId >= 0) {
+        gl.activeTexture(gl.TEXTURE0 + textureId);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        glTextureCounter.free(textureId);
+    }
+}
+
 function glUniformTexture(gl, glTextureCounter, glShader, prefix, texture, glTexture) {
     let flagLocation = gl.getUniformLocation(glShader, prefix + "with_" + texture);
+    let location = gl.getUniformLocation(glShader, prefix + texture);
     if (!glTexture) {
         gl.uniform1i(flagLocation, 0);
-        return -1;
+        let unit = glTextureCounter.get();
+        gl.uniform1i(location, unit);
+        return unit;
     }
     let textureBuffer = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
@@ -45,7 +56,6 @@ function glUniformTexture(gl, glTextureCounter, glShader, prefix, texture, glTex
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    let location = gl.getUniformLocation(glShader, prefix + texture);
     let unit = glTextureCounter.get();
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
@@ -63,6 +73,11 @@ function glAttributeArray(gl, glShader, attribute, array, size, type) {
     gl.enableVertexAttribArray(attributeLocation);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.vertexAttribPointer(attributeLocation, size, type, false, 0, 0);
+}
+
+function glUniformIntBool(gl, glShader, bool, value) {
+    let location = gl.getUniformLocation(glShader, bool);
+    gl.uniform1i(location, value);
 }
 
 function glUniformStruct(gl, glShader, struct, value) {
@@ -151,6 +166,8 @@ class Shape {
         this.geometry = shapeData.geometry;
         if ("texture" in shapeData)
           this.texture = shapeData.texture;
+        if ("reflection" in shapeData)
+          this.reflection = shapeData.reflection;
 
         let transMatrix = math.identity(4);
 
@@ -213,7 +230,11 @@ class Camera {
         this.from = from;
         
         let n = normalize(math.subtract(from,  to));
-        let u = normalize(math.cross([0, 1, 0], n));
+        let _u = math.cross([0, 1, 0], n);
+        if (math.norm(_u) < 0.1) {
+            _u = math.cross([1, 0, 0], n);
+        }
+        let u = normalize(_u);
         let v = math.cross(n, u);
         let r = from;
         let left = bounds[3];
@@ -308,10 +329,84 @@ class Scene {
         this.shapes = sceneData.shapes.map((data) => new Shape(data));
 
         this.lights = sceneData.lights;
-    }    
+    }
 
-    drawShape(shape) {
-        let camera = this.camera;
+    generateEnvTexture(shape) {
+        let gl = this.canvas.gl;
+        let glShader = this.canvas.glShader;
+        let glTextureCounter = this.canvas.glTextureCounter;
+        
+        let envTextureId = glTextureCounter.get();
+        let envTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + envTextureId);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, envTexture);
+        
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        const offsets = [
+          [1, 0, 0],
+          [-1, 0, 0],
+          [0, 1, 0],
+          [0, -1, 0],
+          [0, 0, 1],
+          [0, 0, -1]
+        ];
+        let envCameras = [];
+        for (let offset of offsets) {
+            let near = shape.reflection.near;
+            let far = shape.reflection.far;
+            let cameraTo = math.add(shape.reflection.position, offset);
+            envCameras.push(new Camera(shape.reflection.position, cameraTo, [near, far, near, -near, near, -near]));
+        }
+        const faces = [
+          gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+          gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+          gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+          gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+          gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+          gl.TEXTURE_CUBE_MAP_NEGATIVE_Z
+        ];
+
+        const faceWidth = 1024;
+        const faceHeight = 1024;
+
+        for (const face of faces) {
+            gl.texImage2D(face, 0, gl.RGBA, faceWidth, faceHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        }
+
+        for (const [face, envCamera] of Object.entries(envCameras)) {
+            for (const shape of this.shapes) {
+                let fb = gl.createFramebuffer();
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+                
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, envTexture);
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, faces[face], envTexture, 0);
+
+                let depthBuffer = gl.createRenderbuffer();
+                gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+                gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.canvas.xres, this.canvas.yres);
+                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
+
+                gl.viewport(0, 0, faceWidth, faceHeight);
+                gl.clearColor(1.0, 1.0, 1.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                let tmpTextureId = glTextureCounter.get();
+                glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
+                this.drawShape(shape, envCamera, true);
+                glTextureCounter.free(tmpTextureId);
+
+                gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            }
+        }
+        gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+
+        return envTextureId;
+    }
+
+    drawShape(shape, camera, skipReflection) {
         let geometry = geo.geometries[shape.geometry];
         let transMatrix = math.multiply(camera.transMatrix, shape.transMatrix);
         let normalMatrix = math.transpose(math.pinv(math.multiply(camera.viewMatrix, shape.transMatrix)));
@@ -393,10 +488,22 @@ class Scene {
                     glMaterial.tex_color = texture.color;
                 }
 
-                // TODO move to canvas
                 let gl = this.canvas.gl;
                 let glTextureCounter = this.canvas.glTextureCounter;
                 let glShader = this.canvas.glShader;
+
+                let textureIds = [];
+
+                if (skipReflection || !("reflection" in shape)) {
+                    let envTextureId = glTextureCounter.get();
+                    textureIds.push(envTextureId);
+                    glUniformIntBool(gl, glShader, "has_reflection", 0);
+                } else {
+                    let envTextureId = this.generateEnvTexture(shape);
+                    textureIds.push(envTextureId);
+                    glUniformIntBool(gl, glShader, "has_reflection", 1);
+                    glUniformIntBool(gl, glShader, "env_tex", envTextureId);
+                }
 
                 glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
                 glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
@@ -406,13 +513,11 @@ class Scene {
                 glUniformMatrix(gl, glShader, "normal_matrix", normalMatrix, 4);
                 
                 glUniformMatrix(gl, glShader, "persp_matrix_inv", perspInv, 4);
-                glUniformMatrix(gl, glShader, "camera_normal_matrix", camera.normalMatrix, 4);
+                glUniformMatrix(gl, glShader, "camera_normal_matrix_inv", math.inv(camera.normalMatrix), 4);
 
                 glUniformStructArray(gl, glShader, "lights", glLights);
 
                 glUniformStruct(gl, glShader, "material", glMaterial);
-
-                let textureIds = [];
 
                 let glTextureKa = geo.textures[material.map_Ka.file];
                 textureIds.push(glUniformTexture(gl, glTextureCounter, glShader, "material.", "ka_texture", glTextureKa));
@@ -424,14 +529,15 @@ class Scene {
                 textureIds.push(glUniformTexture(gl, glTextureCounter, glShader, "material.", "kd_texture", glTextureKd));
 
                 gl.drawArrays(gl.TRIANGLES, 0, glPositions.length / 3);
-                glTextureCounter.freeIds(textureIds);
+
+                textureIds.forEach((textureId) => glTextureUnbind(gl, glTextureCounter, textureId));
             }
         }
     }
 
     draw() {
         for (const shape of this.shapes) {
-            this.drawShape(shape);
+            this.drawShape(shape, this.camera, false);
         }
     }
 }

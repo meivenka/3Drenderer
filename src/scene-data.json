@@ -90,6 +90,11 @@
               "background": [0.2, 0.1, 0.35],
               "color": [0.6, 0.2, 0.9]
           },
+          "reflection": {
+              "position": [1, 1, -3],
+              "near": 1,
+              "far": 100
+          },
           "transforms": [
             {
                 "Rx": -20
@@ -104,6 +109,37 @@
             {
                 "T": [
                   1,
+                  1,
+                  -3
+                ]
+            }
+          ]
+      },
+      {
+          "id": "teapot2",
+          "notes": "",
+          "geometry": "teapot.obj",
+          "texture": {
+              "type": "perlin",
+              "nwidth": 20,
+              "nheight": 20,
+              "background": [0.2, 0.1, 0.35],
+              "color": [0.6, 0.2, 0.9]
+          },
+          "transforms": [
+            {
+                "Rx": 20
+            },
+            {
+                "S": [
+                  0.05,
+                  0.05,
+                  0.05
+                ]
+            },
+            {
+                "T": [
+                  -1,
                   1,
                   -3
                 ]
