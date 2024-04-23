@@ -140,8 +140,7 @@ void main()
       vec3 texture_color = vec3(1.0, 1.0, 1.0);
       if (material.is_procedural_texture) {
         texture_color = get_procedural_color(material);
-      }
-      else if (material.with_ka_texture) {
+      } else if (material.with_ka_texture) {
         texture_color = get_texture_color(material.ka_texture);
       }
       vec3 dcolor_ambient = light.intensity * material.ka * light.color * texture_color;

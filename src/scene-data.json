@@ -87,7 +87,7 @@
               "type": "perlin",
               "nwidth": 20,
               "nheight": 20,
-              "background": [0.4, 0.2, 0.7],
+              "background": [0.2, 0.1, 0.35],
               "color": [0.6, 0.2, 0.9]
           },
           "transforms": [
