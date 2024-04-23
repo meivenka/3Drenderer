@@ -14,26 +14,30 @@ class IdAllocator {
         if (result == -1) {
             throw new Error("No available ID");
         }
+        this.set[result] = true;
         return result;
     }
 
     free(id) {
+        if (id < 0) {
+            return ;
+        }
         if (!this.set[id]) {
             throw new Error("Freeing an unused ID", id);
         }
         this.set[id] = false;
     }
 
-    freeAll() {
-        this.set = new Array(this.size).fill(false);
+    freeIds(ids) {
+        ids.forEach((id) => this.free(id));
     }
 }
 
-function glUniformTexture(gl, glCounter, glShader, prefix, texture, glTexture) {
+function glUniformTexture(gl, glTextureCounter, glShader, prefix, texture, glTexture) {
     let flagLocation = gl.getUniformLocation(glShader, prefix + "with_" + texture);
     if (!glTexture) {
         gl.uniform1i(flagLocation, 0);
-        return ;
+        return -1;
     }
     let textureBuffer = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
@@ -42,11 +46,13 @@ function glUniformTexture(gl, glCounter, glShader, prefix, texture, glTexture) {
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     let location = gl.getUniformLocation(glShader, prefix + texture);
-    let unit = glCounter.get();
+    let unit = glTextureCounter.get();
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, textureBuffer);
     gl.uniform1i(location, unit);
     gl.uniform1i(flagLocation, 1);
+
+    return unit;
 }
 
 function glAttributeArray(gl, glShader, attribute, array, size, type) {
@@ -264,7 +270,7 @@ class Canvas {
         this.canvas.setAttribute("height", yres);
         let gl = this.canvas.getContext("webgl2");
         this.gl = gl;
-        this.glCounter = new IdAllocator(gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
+        this.glTextureCounter = new IdAllocator(gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
         gl.clearColor(... color);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -389,7 +395,7 @@ class Scene {
 
                 // TODO move to canvas
                 let gl = this.canvas.gl;
-                let glCounter = this.canvas.glCounter;
+                let glTextureCounter = this.canvas.glTextureCounter;
                 let glShader = this.canvas.glShader;
 
                 glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
@@ -406,17 +412,19 @@ class Scene {
 
                 glUniformStruct(gl, glShader, "material", glMaterial);
 
+                let textureIds = [];
+
                 let glTextureKa = geo.textures[material.map_Ka.file];
-                glUniformTexture(gl, glCounter, glShader, "material.", "ka_texture", glTextureKa);
+                textureIds.push(glUniformTexture(gl, glTextureCounter, glShader, "material.", "ka_texture", glTextureKa));
 
                 let glTextureKs = geo.textures[material.map_Ks.file];
-                glUniformTexture(gl, glCounter, glShader, "material.", "ks_texture", glTextureKs);
+                textureIds.push(glUniformTexture(gl, glTextureCounter, glShader, "material.", "ks_texture", glTextureKs));
 
                 let glTextureKd = geo.textures[material.map_Kd.file];
-                glUniformTexture(gl, glCounter, glShader, "material.", "kd_texture", glTextureKd);
-                
+                textureIds.push(glUniformTexture(gl, glTextureCounter, glShader, "material.", "kd_texture", glTextureKd));
+
                 gl.drawArrays(gl.TRIANGLES, 0, glPositions.length / 3);
-                glCounter.freeAll();
+                glTextureCounter.freeIds(textureIds);
             }
         }
     }
