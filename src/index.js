@@ -246,16 +246,25 @@ class Shape {
 }
 
 class Camera {
-    constructor(from, to, bounds) {
+    constructor(from, to, bounds, up) {
         this.from = from;
         
-        let n = normalize(math.subtract(from,  to));
-        let _u = math.cross([0, 1, 0], n);
-        if (math.norm(_u) < 0.1) {
-            _u = math.cross([1, 0, 0], n);
+        let n = normalize(math.subtract(from, to));
+        let u = [];
+        let v = up;
+        if (!v) {
+            let _u = math.cross([0, 1, 0], n);
+            if (math.norm(_u) < 0.1) {
+                _u = math.cross([1, 0, 0], n);
+            }
+            u = normalize(_u);
+            v = math.cross(n, u);
+        } else {
+            u = math.multiply(-1, math.cross(n, v));
+            if (math.norm(u) < 0.99 || math.norm(u) > 1.01) {
+                throw new Error("Invalid up");
+            }
         }
-        let u = normalize(_u);
-        let v = math.cross(n, u);
         let r = from;
         let left = bounds[3];
         let right = bounds[2];
@@ -372,13 +381,22 @@ class Scene {
           [0, 0, 1],
           [0, 0, -1]
         ];
+
+        const ups = [
+          [0, -1, 0],
+          [0, -1, 0],
+          [0, 0, 1],
+          [0, 0, -1],
+          [0, -1, 0],
+          [0, -1, 0]
+        ]
         let envCameras = [];
-        for (let offset of offsets) {
+        for (let [i, offset] of Object.entries(offsets)) {
             let near = shape.reflection.near;
             let far = shape.reflection.far;
             let cameraTo = math.add(shape.reflection.position, offset);
             let bounds = [near, far, near, -near, near, -near];
-            envCameras.push(new Camera(shape.reflection.position, cameraTo, bounds));
+            envCameras.push(new Camera(shape.reflection.position, cameraTo, bounds, ups[i]));
         }
         const faces = [
           gl.TEXTURE_CUBE_MAP_POSITIVE_X,
