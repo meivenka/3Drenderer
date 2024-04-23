@@ -350,7 +350,7 @@ class Scene {
                     };
                     if (result.is_directional) {
                         result.direction = normalize(math.subtract(light.to, light.from));
-                        result.source = light.from;
+                        result.source = Camera.transform(camera.viewMatrix, light.from);
                     }
                     return result;
                 });
