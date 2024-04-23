@@ -46,7 +46,7 @@ uniform Material material;
 
 vec2 perlin_gradient(vec2 xy, float seed)
 {
-  float rand = fract(sin(dot(xy ,vec2(12.9898,78.233))) * (43758.5453 + seed)) * 2.0 * 3.1416;
+  float rand = fract(sin(dot(xy ,vec2(12.9898,78.233))) * (43758.5453 * seed)) * 2.0 * 3.1416;
   return vec2(sin(rand), cos(rand));
 }
 
