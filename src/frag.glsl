@@ -158,7 +158,7 @@ void main()
   }
   
   if (has_reflection) {
-    vec3 R = reflect(pos, N);
+    vec3 R = reflect(-E, N);
     color = textureCube(env_tex, R).xyz;
   }
 
