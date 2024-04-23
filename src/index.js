@@ -203,7 +203,9 @@ class Shape {
 }
 
 class Camera {
-    constructor(from, to ,bounds) {
+    constructor(from, to, bounds) {
+        this.from = from;
+        
         let n = normalize(math.subtract(from,  to));
         let u = normalize(math.cross([0, 1, 0], n));
         let v = math.cross(n, u);
