@@ -395,31 +395,34 @@ class Scene {
         for (const face of faces) {
             gl.texImage2D(face, 0, gl.RGBA, faceWidth, faceHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         }
-
+        
         for (const [face, envCamera] of Object.entries(envCameras)) {
+
+            let fb = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+            
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, envTexture);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, faces[face], envTexture, 0);
+
+            let depthBuffer = gl.createRenderbuffer();
+            gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+            gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.canvas.xres, this.canvas.yres);
+            gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
+
+            gl.viewport(0, 0, faceWidth, faceHeight);
+            gl.clearColor(1, 1, 1, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            let tmpTextureId = glTextureCounter.get();
+            glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
+            
             for (const shape of this.shapes) {
-                let fb = gl.createFramebuffer();
-                gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-                
-                gl.bindTexture(gl.TEXTURE_CUBE_MAP, envTexture);
-                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, faces[face], envTexture, 0);
-
-                let depthBuffer = gl.createRenderbuffer();
-                gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
-                gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.canvas.xres, this.canvas.yres);
-                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
-
-                gl.viewport(0, 0, faceWidth, faceHeight);
-                gl.clearColor(1, 1, 1, 1.0);
-                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                let tmpTextureId = glTextureCounter.get();
-                glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
                 this.drawShape(shape, envCamera, true);
-                glTextureCounter.free(tmpTextureId);
-
-                gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             }
+            
+            glTextureCounter.free(tmpTextureId);
+            
+            gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
         gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
