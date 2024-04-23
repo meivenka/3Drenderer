@@ -17,6 +17,7 @@ const geometriesPaths = {
     "ground.obj": "./ground.obj",
     "tree.obj": "./tree.obj",
     "teapot.obj": "./teapot.obj",
+    "ellie.obj": "./ellie.obj",
 }
 
 const materialLibsPaths = {
@@ -25,6 +26,7 @@ const materialLibsPaths = {
     "ground.mtl": "./ground.mtl",
     "tree.mtl": "./tree.mtl",
     "teapot.mtl": "./teapot.mtl",
+    "ellie.mtl": "./ellie.mtl",
 }
 
 const texturesPaths = {
@@ -37,6 +39,17 @@ async function loadObj(name, path) {
     await $.get(path, function(objContent) {
         let obj = new OBJFile(objContent);
         let geometry = obj.parse();
+        let vBase = 0;
+        let nBase = 0;
+        let tBase = 0;
+        for (let model of geometry.models) {
+            model.vBase = vBase;
+            vBase += model.vertices.length;
+            model.nBase = nBase;
+            nBase += model.vertexNormals.length;
+            model.tBase = tBase;
+            tBase += model.textureCoords.length;
+        }
         geometries[name] = geometry;
     });
 }

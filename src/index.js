@@ -471,16 +471,19 @@ class Scene {
             for (const [materialId, faces] of Object.entries(facesGroups)) {
                 for (const face of faces) {
                     for (const vIndices of face.vertices) {
-                        let v = model.vertices[vIndices.vertexIndex - 1];
+                        let v = model.vertices[vIndices.vertexIndex - 1 - model.vBase];
                         v = [v.x, v.y, v.z];
                         glPositions.push.apply(glPositions, v);
                         
-                        let n = model.vertexNormals[vIndices.vertexNormalIndex - 1];
+                        let n = model.vertexNormals[vIndices.vertexNormalIndex - 1 - model.nBase];
                         n = [n.x, n.y, n.z];
                         glNormals.push.apply(glNormals, n);
-                        
-                        let t = model.textureCoords[vIndices.textureCoordsIndex - 1];
-                        t = [t.u, t.v, t.w];
+
+                        let t = [0, 0, 0];
+                        if (vIndices.textureCoordsIndex > 0) {
+                            t = model.textureCoords[vIndices.textureCoordsIndex - 1 - model.tBase];
+                            t = [t.u, t.v, t.w];
+                        }
                         glTextureCoords.push.apply(glTextureCoords, t);
                     }
                 }
