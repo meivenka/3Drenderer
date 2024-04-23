@@ -52,6 +52,13 @@
           "id": "box1",
           "notes": "",
           "geometry": "box.obj",
+          "texture": {
+              "type": "perlin",
+              "nwidth": 30,
+              "nheight": 30,
+              "background": [0.1, 0.1, 0.1],
+              "color": [0.6, 0.26, 0.1]
+          },
           "transforms": [
             {
                 "Rx": 23

@@ -125,6 +125,8 @@ class Shape {
         this.id = shapeData.id;
         this.notes = shapeData.notes;
         this.geometry = shapeData.geometry;
+        if ("texture" in shapeData)
+          this.texture = shapeData.texture;
 
         let transMatrix = math.identity(4);
 
@@ -336,8 +338,29 @@ class Scene {
                     "ka": rgb2vec(material.Ka),
                     "ks": rgb2vec(material.Ks),
                     "kd": rgb2vec(material.Kd),
-                    "n": material.illum
+                    "n": material.illum,
+                    "is_procedural_texture": false
                 };
+
+                if ("texture" in shape) {
+                    glMaterial.is_procedural_texture = true;
+                    let texture = shape.texture;
+                    let is_tex_perlin = false;
+                    switch(texture.type) {
+                    case "perlin":
+                        is_tex_perlin = true;
+                        break;
+
+                    default:
+                        throw new Error("Procedural texture type invalid ", texture.type);
+                    }
+                    glMaterial.is_tex_perlin = is_tex_perlin;
+                    glMaterial.tex_nwidth = texture.nwidth;
+                    glMaterial.tex_nheight = texture.nheight;
+                    glMaterial.tex_seed = Math.random();
+                    glMaterial.tex_background = texture.background;
+                    glMaterial.tex_color = texture.color;
+                }
 
                 // TODO move to canvas
                 let gl = this.canvas.gl;
