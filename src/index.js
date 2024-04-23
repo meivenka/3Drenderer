@@ -378,7 +378,6 @@ class Scene {
             let far = shape.reflection.far;
             let cameraTo = math.add(shape.reflection.position, offset);
             let bounds = [near, far, near, -near, near, -near];
-            console.log(shape.reflection.position, cameraTo, bounds);
             envCameras.push(new Camera(shape.reflection.position, cameraTo, bounds));
         }
         const faces = [
