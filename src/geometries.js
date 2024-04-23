@@ -16,6 +16,7 @@ const geometriesPaths = {
     "background.obj": "./background.obj",
     "ground.obj": "./ground.obj",
     "tree.obj": "./tree.obj",
+    "teapot.obj": "./teapot.obj",
 }
 
 const materialLibsPaths = {
@@ -23,6 +24,7 @@ const materialLibsPaths = {
     "background.mtl": "./background.mtl",
     "ground.mtl": "./ground.mtl",
     "tree.mtl": "./tree.mtl",
+    "teapot.mtl": "./teapot.mtl",
 }
 
 const texturesPaths = {
