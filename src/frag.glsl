@@ -30,13 +30,12 @@ struct Material
   vec3 tex_color;
 };
 
-varying vec4 v_position;
-varying vec4 v_normal;
+varying vec4 v_position_world;
+varying vec4 v_normal_world;
 varying vec4 v_texture_coord;
-varying float v_material_index;
+varying vec4 v_position_camera;
 
-uniform mat4 persp_matrix_inv;
-uniform mat4 camera_normal_matrix_inv;
+uniform vec3 camera_from;
 
 #define MAX_LIGHTS 20
 #define MAX_MATERIALS 20
@@ -95,15 +94,20 @@ vec3 vec4_to_vec3(vec4 v)
   return v.xyz / v.w;
 }
 
+vec3 get_texture_coord()
+{
+  return v_position_camera.z / v_position_camera.w * vec4_to_vec3(v_texture_coord);
+}
+
 vec3 get_texture_color(sampler2D sampler)
 {
-  vec3 texture_coord = v_position.z * vec4_to_vec3(v_texture_coord);
+  vec3 texture_coord = get_texture_coord();
   return texture2D(sampler, texture_coord.xy).xyz;
 }
 
 vec3 get_procedural_color(Material material)
 {
-  vec3 texture_coord = v_position.z * vec4_to_vec3(v_texture_coord);
+  vec3 texture_coord = get_texture_coord();
   
   if (material.is_tex_perlin) {
     float noise = perlin_noise(material.tex_nwidth, material.tex_nheight, material.tex_seed, texture_coord.xy);
@@ -116,9 +120,9 @@ vec3 get_procedural_color(Material material)
 void main()
 {
   vec3 color = vec3(0.0, 0.0, 0.0);
-  vec3 pos = vec4_to_vec3(v_position * persp_matrix_inv);
-  vec3 E = normalize(-pos);
-  vec3 N = normalize(vec4_to_vec3(v_normal));
+  vec3 pos = vec4_to_vec3(v_position_world);
+  vec3 E = normalize(camera_from - pos);
+  vec3 N = normalize(vec4_to_vec3(v_normal_world));
   
   for (int li = 0; li < MAX_LIGHTS; li++) {
     if (li >= n_lights) {
@@ -155,7 +159,6 @@ void main()
   
   if (has_reflection) {
     vec3 R = reflect(pos, N);
-    vec3 R_world = normalize(vec4_to_vec3(vec4(R, 1.0) * camera_normal_matrix_inv));
     color = textureCube(env_tex, R).xyz;
   }
 

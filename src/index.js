@@ -75,6 +75,26 @@ function glAttributeArray(gl, glShader, attribute, array, size, type) {
     gl.vertexAttribPointer(attributeLocation, size, type, false, 0, 0);
 }
 
+function glUniformVec(gl, glShader, vec, value) {
+    let location = gl.getUniformLocation(glShader, vec);
+    
+    let uniformf = {};
+    switch (value.length) {
+    case 2:
+        uniformf = gl.uniform2fv;
+        break;
+    case 3:
+        uniformf = gl.uniform3fv;
+        break;
+    case 4:
+        uniformf = gl.uniform4fv;
+        break;
+    default:
+        throw new Error("vector size for glsl should be 2, 3 or 4");
+    }
+    $.proxy(uniformf, gl)(location, value);
+}
+
 function glUniformIntBool(gl, glShader, bool, value) {
     let location = gl.getUniformLocation(glShader, bool);
     gl.uniform1i(location, value);
@@ -451,7 +471,7 @@ class Scene {
                     };
                     if (result.is_directional) {
                         result.direction = normalize(math.subtract(light.to, light.from));
-                        result.source = Camera.transform(camera.viewMatrix, light.from);
+                        result.source = light.from;
                     }
                     return result;
                 });
@@ -509,11 +529,12 @@ class Scene {
                 glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
                 glAttributeArray(gl, glShader, "texture_coord", new Float32Array(glTextureCoords), 3, gl.FLOAT);
 
-                glUniformMatrix(gl, glShader, "trans_matrix", transMatrix, 4);
-                glUniformMatrix(gl, glShader, "normal_matrix", normalMatrix, 4);
+                glUniformMatrix(gl, glShader, "world_matrix", shape.transMatrix, 4);
+                glUniformMatrix(gl, glShader, "world_matrix_inv_transpose", math.transpose(math.inv(shape.transMatrix)), 4);
                 
-                glUniformMatrix(gl, glShader, "persp_matrix_inv", perspInv, 4);
-                glUniformMatrix(gl, glShader, "camera_normal_matrix_inv", math.inv(camera.normalMatrix), 4);
+                glUniformMatrix(gl, glShader, "persp_matrix", camera.perspMatrix, 4);
+                glUniformMatrix(gl, glShader, "camera_matrix", camera.viewMatrix, 4);
+                glUniformVec(gl, glShader, "camera_from", camera.from, 4);
 
                 glUniformStructArray(gl, glShader, "lights", glLights);
 
