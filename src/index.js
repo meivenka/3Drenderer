@@ -437,14 +437,10 @@ class Scene {
             gl.viewport(0, 0, faceWidth, faceHeight);
             gl.clearColor(1, 1, 1, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            let tmpTextureId = glTextureCounter.get();
-            glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
             
             for (const shape of this.shapes) {
                 this.drawShape(shape, envCamera, true, true);
             }
-            
-            glTextureCounter.free(tmpTextureId);
             
             gl.bindRenderbuffer(gl.RENDERBUFFER, null);
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -481,14 +477,9 @@ class Scene {
         gl.viewport(0, 0, viewWidth, viewHeight);
         gl.clear(gl.DEPTH_BUFFER_BIT);
         
-        let tmpTextureId = glTextureCounter.get();
-        glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
-
         for (const shape of this.shapes) {
             this.drawShape(shape, lightSource.camera, true, true);
         }
-
-        glTextureCounter.free(tmpTextureId);
         
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.deleteFramebuffer(fb);
@@ -589,6 +580,9 @@ class Scene {
                     let envTextureId = glTextureCounter.get();
                     textureIds.push(envTextureId);
                     glUniformIntBool(gl, glShader, "has_reflection", 0);
+                    let tmpTextureId = glTextureCounter.get();
+                    textureIds.push(tmpTextureId);
+                    glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
                 } else {
                     let envTextureId = this.generateEnvTexture(shape);
                     textureIds.push(envTextureId);
