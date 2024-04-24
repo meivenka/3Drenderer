@@ -422,7 +422,7 @@ class Scene {
         }
         
         for (const [face, envCamera] of Object.entries(envCameras)) {
-
+            var prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
             let fb = gl.createFramebuffer();
             gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
             
@@ -439,11 +439,11 @@ class Scene {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             
             for (const shape of this.shapes) {
-                this.drawShape(shape, envCamera, true, true);
+                this.drawShape(shape, envCamera, true, false);
             }
             
             gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
         }
         gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -467,6 +467,7 @@ class Scene {
 
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, viewWidth, viewHeight, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
 
+        let prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
         let fb = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
             
@@ -481,7 +482,7 @@ class Scene {
             this.drawShape(shape, lightSource.camera, true, true);
         }
         
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
         gl.deleteFramebuffer(fb);
     }
 
