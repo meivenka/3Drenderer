@@ -42,11 +42,12 @@ uniform vec3 camera_from;
 #define MAX_MATERIALS 20
 
 uniform Light lights[MAX_LIGHTS];
-uniform sampler2D shadowTextures[MAX_LIGHTS];
+uniform sampler2D shadow_textures[MAX_LIGHTS];
 uniform int n_lights;
 uniform Material material;
 
 uniform bool has_reflection;
+uniform bool has_shadow;
 uniform samplerCube env_tex;
 
 vec2 perlin_gradient(vec2 xy, float seed)
@@ -119,6 +120,16 @@ vec3 get_procedural_color(Material material)
   return vec3(1.0, 1.0, 1.0);
 }
 
+float get_shadow_texture2D(int index, vec2 xy) {
+  vec4 result = vec4(0.0, 0.0, 0.0, 0.0);
+  for (int i = 0; i < MAX_LIGHTS; i++) {
+    if (i == index) {
+      result = texture2D(shadow_textures[i], xy);
+    }
+  }
+  return result.x;
+}
+
 void main()
 {
   vec3 color = vec3(0.0, 0.0, 0.0);
@@ -132,21 +143,37 @@ void main()
     }
     Light light = lights[li];
     if (light.is_directional) {
-      vec3 L = normalize(light.source - pos);
-      vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
-      vec3 ks_texture_color = vec3(1.0, 1.0, 1.0);
-      if (material.with_ks_texture) {
-        ks_texture_color = get_texture_color(material.ks_texture);
+      bool skip_lighting = false;
+      if (has_shadow) {
+        vec3 position_light_camera = vec4_to_vec3(v_position_world * light.trans_matrix);
+        float x = (position_light_camera.x + 1.0) / 2.0;
+        float y = (position_light_camera.y + 1.0) / 2.0;
+        if (x <= 0.0 || x >= 1.0 || y <= 0.0 || y >= 1.0) {
+          skip_lighting = true;
+        } else {
+          float z = get_shadow_texture2D(li, vec2(x, y));
+          if (z == 0.0) {
+            skip_lighting = true;
+          }
+        }
       }
-      vec3 dcolor_specular = light.intensity * pow(max(dot(R, E), 0.0), material.n) * material.ks * ks_texture_color * light.color;
-
-      vec3 kd_texture_color = vec3(1.0, 1.0, 1.0);
-      if (material.with_kd_texture) {
-        kd_texture_color = get_texture_color(material.kd_texture);
+      if(!skip_lighting) {
+          vec3 L = normalize(light.source - pos);
+          vec3 R = normalize(2.0 * max(dot(L, N), 0.0) * N - L);
+          vec3 ks_texture_color = vec3(1.0, 1.0, 1.0);
+          if (material.with_ks_texture) {
+            ks_texture_color = get_texture_color(material.ks_texture);
+          }
+          vec3 dcolor_specular = light.intensity * pow(max(dot(R, E), 0.0), material.n) * material.ks * ks_texture_color * light.color;
+    
+          vec3 kd_texture_color = vec3(1.0, 1.0, 1.0);
+          if (material.with_kd_texture) {
+            kd_texture_color = get_texture_color(material.kd_texture);
+          }
+          vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.kd * kd_texture_color * light.color;
+          
+          color += dcolor_specular + dcolor_diffuse;
       }
-      vec3 dcolor_diffuse = light.intensity * max(dot(N, L), 0.0) * material.kd * kd_texture_color * light.color;
-      
-      color += dcolor_specular + dcolor_diffuse;
     } else {
       vec3 texture_color = vec3(1.0, 1.0, 1.0);
       if (material.is_procedural_texture) {
