@@ -358,6 +358,13 @@ class Scene {
         this.shapes = sceneData.shapes.map((data) => new Shape(data));
 
         this.lights = sceneData.lights;
+
+        for(let lightSource of this.lights){
+            if(lightSource.type == "directional") {
+                let lightCamera = new Camera(lightSource.from, lightSource.to, lightSource.bounds);
+                lightSource.camera = lightCamera;
+            }
+        }
     }
 
     generateEnvTexture(shape) {
@@ -448,6 +455,48 @@ class Scene {
         return envTextureId;
     }
 
+    generateShadowTexture(lightSource){
+        // gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+        // 
+
+        let gl = this.canvas.gl;
+        let glShader = this.canvas.glShader;
+        let glTextureCounter = this.canvas.glTextureCounter;
+
+        let shadowTextureId = glTextureCounter.get();
+        let shadowTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + shadowTextureId);
+        gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
+        
+        const viewWidth = 1024;
+        const viewHeight = 1024;
+
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, viewWidth, viewHeight, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+
+        let fb = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+            
+        gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, shadowTexture, 0);
+
+
+        gl.viewport(0, 0, viewWidth, viewHeight);
+        // gl.clearColor(1, 1, 1, 1.0);
+        // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        let tmpTextureId = glTextureCounter.get();
+        glUniformIntBool(gl, glShader, "shadow_tex", tmpTextureId);
+            
+        for (const shape of this.shapes) {
+            this.drawShape(shape, lightSource.camera, true);
+        }
+            
+        glTextureCounter.free(tmpTextureId);
+            
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        lightSource.shadowTextureId = shadowTextureId;
+
+    }
+
     drawShape(shape, camera, skipReflection) {
         let geometry = geo.geometries[shape.geometry];
         let transMatrix = math.multiply(camera.transMatrix, shape.transMatrix);
@@ -496,7 +545,7 @@ class Scene {
                     };
                     if (result.is_directional) {
                         result.direction = normalize(math.subtract(light.to, light.from));
-                        result.source = light.from;
+                        result.source = light.from;                    
                     }
                     return result;
                 });
@@ -582,6 +631,13 @@ class Scene {
     }
 
     draw() {
+
+        for(const lightSource of this.lights){
+            if(lightSource.type == "directional")
+                this.generateShadowTexture(lightSource);
+        }
+
+        
         for (const shape of this.shapes) {
             this.drawShape(shape, this.camera, false);
         }
