@@ -456,17 +456,15 @@ class Scene {
     }
 
     generateShadowTexture(lightSource){
-        // gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
-        // 
-
         let gl = this.canvas.gl;
         let glShader = this.canvas.glShader;
         let glTextureCounter = this.canvas.glTextureCounter;
-
-        let shadowTextureId = glTextureCounter.get();
         let shadowTexture = gl.createTexture();
+        let shadowTextureId = lightSource.shadowTextureId;
         gl.activeTexture(gl.TEXTURE0 + shadowTextureId);
         gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         
         const viewWidth = 1024;
         const viewHeight = 1024;
@@ -483,18 +481,18 @@ class Scene {
         gl.viewport(0, 0, viewWidth, viewHeight);
         // gl.clearColor(1, 1, 1, 1.0);
         // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
         let tmpTextureId = glTextureCounter.get();
-        lightSource.shadowTextureId = shadowTextureId;
-        glUniformIntBool(gl, glShader, "shadow_tex", tmpTextureId);
-            
+        glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
+
         for (const shape of this.shapes) {
             this.drawShape(shape, lightSource.camera, true, true);
         }
-            
-        glTextureCounter.free(tmpTextureId);
-            
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+        glTextureCounter.free(tmpTextureId);
+        
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.deleteFramebuffer(fb);
     }
 
     drawShape(shape, camera, skipReflection, skipShadow = false) {
@@ -630,11 +628,11 @@ class Scene {
                 let tmpTextureId = glTextureCounter.get();
                 textureIds.push(tmpTextureId);
                 for (let i = 0; i < 20; i++) {
-                    if (i < this.lights.length && this.lights[i].type == "directional") {
-                        glUniformIntBool(gl, glShader, "shadowTextures[" + i + "]", this.lights[i].shadowTextureId);
+                    if (i < this.lights.length && this.lights[i].type == "directional" && !skipShadow) {
+                        glUniformIntBool(gl, glShader, "shadow_textures[" + i + "]", this.lights[i].shadowTextureId);
 
                     } else {
-                        glUniformIntBool(gl, glShader, "shadowTextures[" + i + "]", tmpTextureId);
+                        glUniformIntBool(gl, glShader, "shadow_textures[" + i + "]", tmpTextureId);
 
                     }
                 }
@@ -656,6 +654,14 @@ class Scene {
     }
 
     draw() {
+
+        for (const lightSource of this.lights) {
+            if(lightSource.type == "directional") {
+                let glTextureCounter = this.canvas.glTextureCounter;
+                let shadowTextureId = glTextureCounter.get();
+                lightSource.shadowTextureId = shadowTextureId;
+            }            
+        }
 
         for(const lightSource of this.lights){
             if(lightSource.type == "directional")

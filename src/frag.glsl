@@ -127,7 +127,7 @@ float get_shadow_texture2D(int index, vec2 xy) {
       result = texture2D(shadow_textures[i], xy);
     }
   }
-  return result.x;
+  return result.r;
 }
 
 void main()
@@ -148,11 +148,12 @@ void main()
         vec3 position_light_camera = vec4_to_vec3(v_position_world * light.trans_matrix);
         float x = (position_light_camera.x + 1.0) / 2.0;
         float y = (position_light_camera.y + 1.0) / 2.0;
-        if (x <= 0.0 || x >= 1.0 || y <= 0.0 || y >= 1.0) {
+        if (x <= 0.0 || x >= 1.0 || y <= 0.0 || y >= 1.0
+            || position_light_camera.z <= 0.0 || position_light_camera.z >= 1.0) {
           skip_lighting = true;
         } else {
           float z = get_shadow_texture2D(li, vec2(x, y));
-          if (z == 0.0) {
+          if (z < position_light_camera.z) {
             skip_lighting = true;
           }
         }
