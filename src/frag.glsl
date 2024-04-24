@@ -8,6 +8,7 @@ struct Light
   vec3 color;
   vec3 direction;
   vec3 source;
+  mat4 trans_matrix;
 };
 
 struct Material
@@ -41,6 +42,7 @@ uniform vec3 camera_from;
 #define MAX_MATERIALS 20
 
 uniform Light lights[MAX_LIGHTS];
+uniform sampler2D shadowTextures[MAX_LIGHTS];
 uniform int n_lights;
 uniform Material material;
 

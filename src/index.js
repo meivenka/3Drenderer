@@ -487,7 +487,7 @@ class Scene {
         glUniformIntBool(gl, glShader, "shadow_tex", tmpTextureId);
             
         for (const shape of this.shapes) {
-            this.drawShape(shape, lightSource.camera, true);
+            this.drawShape(shape, lightSource.camera, true, true);
         }
             
         glTextureCounter.free(tmpTextureId);
@@ -497,7 +497,7 @@ class Scene {
 
     }
 
-    drawShape(shape, camera, skipReflection) {
+    drawShape(shape, camera, skipReflection, skipShadow = false) {
         let geometry = geo.geometries[shape.geometry];
         let transMatrix = math.multiply(camera.transMatrix, shape.transMatrix);
         let normalMatrix = math.transpose(math.pinv(math.multiply(camera.viewMatrix, shape.transMatrix)));
@@ -545,7 +545,7 @@ class Scene {
                     };
                     if (result.is_directional) {
                         result.direction = normalize(math.subtract(light.to, light.from));
-                        result.source = light.from;                    
+                        result.source = light.from;           
                     }
                     return result;
                 });
@@ -599,6 +599,12 @@ class Scene {
                     glUniformIntBool(gl, glShader, "env_tex", envTextureId);
                 }
 
+                if(skipShadow){
+                    glUniformIntBool(gl, glShader, "has_shadow", 0);
+                } else{
+                    glUniformIntBool(gl, glShader, "has_shadow", 1);
+                }
+
                 glAttributeArray(gl, glShader, "position", new Float32Array(glPositions), 3, gl.FLOAT);
                 glAttributeArray(gl, glShader, "normal", new Float32Array(glNormals), 3, gl.FLOAT);
                 glAttributeArray(gl, glShader, "texture_coord", new Float32Array(glTextureCoords), 3, gl.FLOAT);
@@ -613,6 +619,13 @@ class Scene {
                 glUniformStructArray(gl, glShader, "lights", glLights);
 
                 glUniformStruct(gl, glShader, "material", glMaterial);
+
+                for(const [i, lightSource] of Object.entries(this.lights)) {
+                    if (lightSource.type == "directional") {
+                        const transMatrix = lightSource.camera.transMatrix;
+                        glUniformMatrix(gl, glShader, "lights[" + i + "].trans_matrix", transMatrix, 4);
+                    }
+                }
 
                 let glTextureKa = geo.textures[material.map_Ka.file];
                 textureIds.push(glUniformTexture(gl, glTextureCounter, glShader, "material.", "ka_texture", glTextureKa));
