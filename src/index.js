@@ -479,8 +479,7 @@ class Scene {
 
 
         gl.viewport(0, 0, viewWidth, viewHeight);
-        // gl.clearColor(1, 1, 1, 1.0);
-        // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         
         let tmpTextureId = glTextureCounter.get();
         glUniformIntBool(gl, glShader, "env_tex", tmpTextureId);
