@@ -38,7 +38,7 @@ varying vec4 v_position_camera;
 
 uniform vec3 camera_from;
 
-#define MAX_LIGHTS 20
+#define MAX_LIGHTS 10
 #define MAX_MATERIALS 20
 
 uniform Light lights[MAX_LIGHTS];

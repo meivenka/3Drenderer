@@ -338,6 +338,10 @@ class Canvas {
         gl.attachShader(shaderProgram, vertexShader);
         gl.attachShader(shaderProgram, fragShader);
         gl.linkProgram(shaderProgram);
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            let info = gl.getProgramInfoLog(shaderProgram);
+            throw new Error('shader link failed: ' + info);
+        }
         gl.useProgram(shaderProgram);
         this.glShader = shaderProgram;
 
